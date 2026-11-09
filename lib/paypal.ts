@@ -253,7 +253,7 @@ async function post<T>(path: string, body: unknown, requestId?: string): Promise
 export type CaptureResult = {
   id: string; // order id
   status: string;
-  payer?: { email_address?: string };
+  payer?: { email_address?: string; name?: { given_name?: string } };
   purchase_units?: {
     description?: string;
     payments?: {
@@ -267,12 +267,12 @@ export type CaptureResult = {
   }[];
 };
 
-export function createOrder(totalDecimal: string, description: string, requestId: string) {
+export function createOrder(totalDecimal: string, currency: string, description: string, requestId: string) {
   return post<{ id: string; status: string }>(
     '/v2/checkout/orders',
     {
       intent: 'CAPTURE',
-      purchase_units: [{ description, amount: { currency_code: 'USD', value: totalDecimal } }],
+      purchase_units: [{ description, amount: { currency_code: currency, value: totalDecimal } }],
     },
     requestId,
   );

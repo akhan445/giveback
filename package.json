@@ -20,6 +20,7 @@
     "ag-grid-react": "36.2.0",
     "ag-studio": "^3.0.0",
     "ag-studio-react": "^3.0.0",
+    "country-flag-icons": "^1.6.20",
     "next": "16.3.6",
     "pg": "^8.23.1",
     "react": "19.2.8",

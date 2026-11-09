@@ -16,6 +16,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     captureId: capture.id,
     orderId: result.id,
     amountCents: decimalToCents(capture.amount.value),
+    currency: capture.amount.currency_code,
     feeCents: decimalToCents(capture.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
     status: capture.status,
     kind: unit?.description?.startsWith('Donation') ? 'donation' : 'sale',
@@ -23,5 +24,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     payerEmail: result.payer?.email_address,
     source: 'capture',
   });
-  return NextResponse.json({ status: capture.status, captureId: capture.id });
+  return NextResponse.json({
+    status: capture.status,
+    captureId: capture.id,
+    payerFirstName: result.payer?.name?.given_name ?? null,
+  });
 }

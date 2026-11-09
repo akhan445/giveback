@@ -1,0 +1,125 @@
+/* giveback Counter design, Sage theme, Ledger buttons (docs/design.md). */
+.root {
+  --bg: #f5f6f1; --surf: #fcfcf9; --ink: #25301f; --mute: #7a8472;
+  --line: #dfe3d3; --soft: #e9eddf; --a: #4f6b3a; --ai: #fbfcf7;
+  --r: 18px;
+  min-height: 100vh; background: var(--bg); color: var(--ink);
+  font-family: var(--gb-ui), system-ui, sans-serif; font-size: 15px; line-height: 1.35;
+}
+.root * { box-sizing: border-box; }
+.mono { font-family: var(--gb-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.label { font: 500 11px var(--gb-mono), monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }
+
+.layout { display: grid; grid-template-columns: 1fr 320px; min-height: 100vh; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+
+.main { padding: 24px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.org { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.logo { width: 36px; height: 36px; border-radius: 10px; background: var(--a); color: var(--ai); display: grid; place-items: center; font-weight: 600; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.item {
+  background: var(--surf); border: 1px solid var(--line); border-radius: 3px; padding: 14px;
+  height: 96px; padding-bottom: 8px; display: flex; flex-direction: column; justify-content: space-between; text-align: left;
+  color: var(--ink); cursor: pointer; font: inherit; user-select: none;
+}
+.itemBottom { min-height: 32px; flex-wrap: wrap; display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; }
+.hint { font: 500 10px var(--gb-mono), monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); margin: 4px 0 0; }
+.item.sel { outline: 2px solid var(--a); outline-offset: -2px; background: var(--soft); }
+.itemName { font-weight: 500; color: var(--mute); }
+.item.sel .itemName { color: var(--ink); }
+.price { line-height: 1; font: 500 24px/1 var(--gb-mono), monospace; letter-spacing: -0.05em; }
+
+
+.cart { background: var(--soft); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.receipt { position: relative; background: var(--surf); padding: 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 240px; margin-bottom: 8px; }
+.receipt::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 7px;
+  background: linear-gradient(135deg, var(--surf) 50%, transparent 50%) 0 0 / 10px 7px,
+    linear-gradient(225deg, var(--surf) 50%, transparent 50%) 0 0 / 10px 7px;
+}
+.line { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; text-transform: uppercase; }
+.total { margin-top: auto; border-top: 1px dashed var(--mute); padding-top: 10px; display: flex; justify-content: space-between; align-items: baseline; }
+.total b { font-size: 30px; font-weight: 600; letter-spacing: -0.04em; }
+
+/* Ledger buttons: square, mono, uppercase */
+.btn {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  border: 0; border-radius: 2px; padding: 14px; cursor: pointer;
+  background: var(--a); color: var(--ai);
+  font: 600 12px var(--gb-mono), monospace; text-transform: uppercase; letter-spacing: 0.02em;
+}
+.btn::after { content: '⏎'; font-size: 13px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ghost { background: transparent; color: var(--mute); border: 1px solid var(--line); justify-content: center; }
+.ghost::after { content: none; }
+.ppSlot { min-height: 48px; display: flex; justify-content: center; align-items: center; }
+.err { color: #9b1c1c; font-size: 13px; }
+
+/* PAID popup (stamp is always dark red) */
+.overlay { position: fixed; inset: 0; background: rgba(37, 48, 31, 0.4); display: grid; place-items: center; padding: 18px; z-index: 10; }
+.card { background: var(--surf); border-radius: 22px; padding: 28px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 340px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25); }
+.stamp { border: 3px solid #9b1c1c; color: #9b1c1c; font: 600 28px var(--gb-mono), monospace; letter-spacing: 0.16em; padding: 6px 16px 6px 20px; transform: rotate(-4deg); border-radius: 6px; margin: 6px 0 10px; }
+
+/* Quantity controls: text links, tile tap adds one */
+
+.priceWrap { display: flex; align-items: flex-end; gap: 6px; }
+.priceWrap .qtyTag { line-height: 1; padding-bottom: 2px; }
+.qtyTag { font: 600 13px var(--gb-mono), monospace; color: var(--a); }
+.controls { display: inline-flex; align-items: center; gap: 18px; }
+.controls button {
+  border: 0; background: none; padding: 8px 0 4px; cursor: pointer; color: var(--a);
+  font: 600 10.5px var(--gb-mono), monospace; text-transform: uppercase; letter-spacing: 0.04em;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.controls .remove { color: #ff3b30; }
+.controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+.controls button:active:not(:disabled) { opacity: 0.6; }
+
+/* Custom amount: one row, small Add button at the end */
+.donate { background: var(--surf); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 10px 10px 16px; display: flex; gap: 12px; align-items: center; }
+.donateLabel { font: 500 11px var(--gb-mono), monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+.donate input {
+  width: 150px; flex: none; font: 500 18px var(--gb-mono), monospace; padding: 8px 10px; border: 1px solid var(--a); border-radius: 3px;
+  background: var(--soft); color: var(--ink); outline: none;
+}
+.donate input::placeholder { color: var(--mute); }
+.donate input:focus { background: #fff; box-shadow: 0 0 0 3px rgba(79, 107, 58, 0.18); }
+.add {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 2px; cursor: pointer;
+  background: var(--a); color: var(--ai); font: 600 11px var(--gb-mono), monospace; text-transform: uppercase; letter-spacing: 0.02em;
+}
+.add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Swipe to delete */
+.swipe { position: relative; overflow: hidden; }
+.swipeFront { background: var(--surf); touch-action: pan-y; cursor: grab; position: relative; padding: 7px 0; }
+.del {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 56px; height: 28px; border: 0; border-radius: 2px;
+  background: #ff3b30; color: #fff; font: 600 10.5px var(--gb-mono), monospace; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer;
+}
+
+/* Currency picker */
+.picker { position: relative; }
+.pickerBtn {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surf); color: var(--ink); cursor: pointer;
+}
+.pickerBtn:hover, .pickerBtn[aria-expanded='true'] { border-color: var(--a); }
+.pickerBtn svg { color: var(--mute); transition: transform 0.15s; }
+.chevUp { transform: rotate(180deg); }
+.flag { width: 22px; height: 15px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(37, 48, 31, 0.15); flex: none; display: block; }
+.code { font: 600 12px var(--gb-mono), monospace; letter-spacing: 0.04em; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; margin: 0; padding: 6px; list-style: none; min-width: 270px;
+  background: var(--surf); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 36px rgba(37, 48, 31, 0.18);
+}
+.opt {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: none;
+  color: var(--ink); cursor: pointer; text-align: left; font: inherit;
+}
+.opt:hover { background: var(--soft); }
+.optOn { background: var(--soft); }
+.optName { color: var(--mute); font-size: 13px; flex: 1; }
+.tick { color: var(--a); font-weight: 700; width: 14px; text-align: right; }

@@ -16,6 +16,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 
-  const order = await createOrder(centsToDecimal(priced.totalCents), priced.description, randomUUID());
-  return NextResponse.json({ id: order.id, totalCents: priced.totalCents });
+  const order = await createOrder(centsToDecimal(priced.totalCents), priced.currency, priced.description, randomUUID());
+  return NextResponse.json({ id: order.id, totalCents: priced.totalCents, currency: priced.currency });
 }

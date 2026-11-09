@@ -8,6 +8,7 @@ export type PaymentInput = {
   captureId: string;
   orderId?: string | null;
   amountCents: number;
+  currency: string;
   feeCents: number;
   status: string;
   kind: 'sale' | 'donation';
@@ -20,15 +21,15 @@ type Queryable = Pick<PoolClient, 'query'>;
 
 export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
   await q.query(
-    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, fee_cents, status, kind, description, payer_email, source)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, status, kind, description, payer_email, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (paypal_capture_id) DO UPDATE SET
        status        = EXCLUDED.status,
        fee_cents     = GREATEST(payments.fee_cents, EXCLUDED.fee_cents),
        paypal_order_id = COALESCE(payments.paypal_order_id, EXCLUDED.paypal_order_id),
        description   = COALESCE(payments.description, EXCLUDED.description),
        payer_email   = COALESCE(payments.payer_email, EXCLUDED.payer_email)`,
-    [p.captureId, p.orderId ?? null, p.amountCents, p.feeCents, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source],
+    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source],
   );
 }
 
@@ -38,7 +39,7 @@ type WebhookEvent = {
   resource?: {
     id?: string;
     status?: string;
-    amount?: { value: string };
+    amount?: { value: string; currency_code: string };
     seller_receivable_breakdown?: { paypal_fee?: { value: string } };
     supplementary_data?: { related_ids?: { order_id?: string } };
   };
@@ -64,6 +65,7 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
           captureId: r.id,
           orderId: r.supplementary_data?.related_ids?.order_id,
           amountCents: decimalToCents(r.amount.value),
+          currency: r.amount.currency_code,
           feeCents: decimalToCents(r.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
           status: 'COMPLETED',
           kind: 'sale',

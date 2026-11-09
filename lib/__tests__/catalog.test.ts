@@ -15,3 +15,15 @@ describe('priceOrder', () => {
     expect(() => priceOrder({ items: [] })).toThrow(/empty/);
   });
 });
+
+describe('priceOrder currencies', () => {
+  it('defaults to USD and converts item prices server-side', () => {
+    expect(priceOrder({ items: [{ id: 'coffee', qty: 1 }] }).currency).toBe('USD');
+    const cad = priceOrder({ items: [{ id: 'coffee', qty: 2 }], currency: 'CAD' });
+    expect(cad.currency).toBe('CAD');
+    expect(cad.totalCents).toBe(2 * 485); // 350 * 1.38 = 483 -> nearest 5
+  });
+  it('takes donations as-is in the chosen currency', () => {
+    expect(priceOrder({ items: [], donationCents: 1000, currency: 'EUR' }).totalCents).toBe(1000);
+  });
+});

@@ -8,13 +8,13 @@ async function main() {
   const tag = `SMOKE-${Date.now()}`;
   const pool = db();
   try {
-    const base = { orderId: `${tag}-O`, amountCents: 1200, feeCents: 0, status: 'COMPLETED', kind: 'sale' as const };
+    const base = { orderId: `${tag}-O`, amountCents: 1200, currency: 'USD', feeCents: 0, status: 'COMPLETED', kind: 'sale' as const };
     // Same capture reported by the capture route, then twice by webhook: one row.
     await upsertPayment({ ...base, captureId: `${tag}-C`, source: 'capture' });
     const event = {
       id: `${tag}-E`,
       event_type: 'PAYMENT.CAPTURE.COMPLETED',
-      resource: { id: `${tag}-C`, amount: { value: '12.00' }, seller_receivable_breakdown: { paypal_fee: { value: '0.65' } } },
+      resource: { id: `${tag}-C`, amount: { value: '12.00', currency_code: 'USD' }, seller_receivable_breakdown: { paypal_fee: { value: '0.65' } } },
     };
     assert.equal(await handleWebhookEvent(event), 'processed');
     assert.equal(await handleWebhookEvent(event), 'duplicate');
