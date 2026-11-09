@@ -221,3 +221,79 @@ export type Balances = {
 export function getBalances(): Promise<Balances> {
   return get<Balances>('/v1/reporting/balances');
 }
+
+// --- Orders (checkout) and webhook verification -----------------------------------
+
+async function post<T>(path: string, body: unknown, requestId?: string): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${await accessToken()}`,
+        'Content-Type': 'application/json',
+        // PayPal replays the original result for a repeated request id, so retries never double-charge.
+        ...(requestId ? { 'PayPal-Request-Id': requestId } : {}),
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+    if (res.ok) return (await res.json()) as T;
+    if (res.status === 401 && attempt === 1) {
+      cachedToken = undefined;
+      continue;
+    }
+    if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, 2 ** attempt * 250));
+      continue;
+    }
+    throw new PayPalApiError(res.status, path, await res.text());
+  }
+}
+
+export type CaptureResult = {
+  id: string; // order id
+  status: string;
+  payer?: { email_address?: string };
+  purchase_units?: {
+    description?: string;
+    payments?: {
+      captures?: {
+        id: string;
+        status: string;
+        amount: Money;
+        seller_receivable_breakdown?: { paypal_fee?: Money };
+      }[];
+    };
+  }[];
+};
+
+export function createOrder(totalDecimal: string, description: string, requestId: string) {
+  return post<{ id: string; status: string }>(
+    '/v2/checkout/orders',
+    {
+      intent: 'CAPTURE',
+      purchase_units: [{ description, amount: { currency_code: 'USD', value: totalDecimal } }],
+    },
+    requestId,
+  );
+}
+
+export function captureOrder(orderId: string) {
+  return post<CaptureResult>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, `capture-${orderId}`);
+}
+
+/** Asks PayPal whether this webhook delivery is genuine (signature check). */
+export async function verifyWebhookSignature(headers: Headers, event: unknown): Promise<boolean> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) throw new Error('PAYPAL_WEBHOOK_ID must be set');
+  const res = await post<{ verification_status: string }>('/v1/notifications/verify-webhook-signature', {
+    auth_algo: headers.get('paypal-auth-algo'),
+    cert_url: headers.get('paypal-cert-url'),
+    transmission_id: headers.get('paypal-transmission-id'),
+    transmission_sig: headers.get('paypal-transmission-sig'),
+    transmission_time: headers.get('paypal-transmission-time'),
+    webhook_id: webhookId,
+    webhook_event: event,
+  });
+  return res.verification_status === 'SUCCESS';
+}
