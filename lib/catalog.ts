@@ -2,6 +2,7 @@
 // ids and quantities, so a tampered client can never change what a sale costs.
 import { z } from 'zod';
 import { CURRENCY_CODES, convertUsdCents, type CurrencyCode } from './currency';
+import { feeCoverCents } from './fees';
 
 export const CATALOG = [
   { id: 'cookie', name: 'Cookie box', priceCents: 1200 },
@@ -18,11 +19,13 @@ export const orderRequestSchema = z.object({
   items: z.array(z.object({ id: z.string(), qty: z.number().int().min(1).max(100) })).max(20).default([]),
   donationCents: z.number().int().min(MIN_DONATION_CENTS).max(MAX_DONATION_CENTS).optional(),
   currency: z.enum(CURRENCY_CODES).default('USD'),
+  coverFees: z.boolean().optional(),
 });
 export type OrderRequest = z.input<typeof orderRequestSchema>;
 
 export type PricedOrder = {
-  totalCents: number;
+  totalCents: number; // what the supporter pays, including any fee cover
+  feeCoverCents: number;
   currency: CurrencyCode;
   kind: 'sale' | 'donation';
   description: string;
@@ -46,8 +49,11 @@ export function priceOrder(req: OrderRequest): PricedOrder {
   }
   if (totalCents <= 0) throw new RangeError('order is empty');
   if (totalCents > MAX_ORDER_CENTS) throw new RangeError('order too large');
+  const feeCover = req.coverFees ? feeCoverCents(totalCents, currency) : 0;
+  if (feeCover) parts.push('Admin fees');
   return {
-    totalCents,
+    totalCents: totalCents + feeCover,
+    feeCoverCents: feeCover,
     currency,
     kind: items.length === 0 ? 'donation' : 'sale',
     description: parts.join(', ').slice(0, 120),

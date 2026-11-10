@@ -27,3 +27,24 @@ describe('priceOrder currencies', () => {
     expect(priceOrder({ items: [], donationCents: 1000, currency: 'EUR' }).totalCents).toBe(1000);
   });
 });
+
+describe('cover fees', () => {
+  it('adds a server-computed add-on that covers PayPal fee on the whole payment', () => {
+    const o = priceOrder({ items: [{ id: 'cookie', qty: 1 }], coverFees: true }); // $12.00
+    expect(o.feeCoverCents).toBe(Math.ceil((1200 * 289 + 30 * 10000) / (10000 - 289)));
+    expect(o.totalCents).toBe(1200 + o.feeCoverCents);
+    // organization keeps the full $12.00 after PayPal's 2.89% + $0.30 on the new total
+    const fee = Math.round((o.totalCents * 289) / 10000 + 30);
+    expect(o.totalCents - fee).toBeGreaterThanOrEqual(1200);
+    expect(o.description).toContain('Admin fees');
+  });
+  it('adds nothing when off', () => {
+    expect(priceOrder({ items: [{ id: 'cookie', qty: 1 }] }).feeCoverCents).toBe(0);
+  });
+  it('round-trips the order tag', async () => {
+    const { feeCoverTag, parseFeeCoverTag } = await import('../fees');
+    expect(parseFeeCoverTag(feeCoverTag(87))).toBe(87);
+    expect(parseFeeCoverTag('something-else')).toBe(0);
+    expect(parseFeeCoverTag(undefined)).toBe(0);
+  });
+});

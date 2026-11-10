@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { priceOrder, orderRequestSchema } from '@/lib/catalog';
 import { centsToDecimal } from '@/lib/money';
+import { feeCoverTag } from '@/lib/fees';
 import { createOrder } from '@/lib/paypal';
 
 // Creates a PayPal order. The price is computed here from server-side data, never from the client.
@@ -16,6 +17,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 
-  const order = await createOrder(centsToDecimal(priced.totalCents), priced.currency, priced.description, randomUUID());
+  const order = await createOrder(centsToDecimal(priced.totalCents), priced.currency, priced.description, feeCoverTag(priced.feeCoverCents), randomUUID());
   return NextResponse.json({ id: order.id, totalCents: priced.totalCents, currency: priced.currency });
 }

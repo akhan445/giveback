@@ -14,6 +14,11 @@ export const CURRENCIES = {
 export type CurrencyCode = keyof typeof CURRENCIES;
 export const CURRENCY_CODES = Object.keys(CURRENCIES) as [CurrencyCode, ...CurrencyCode[]];
 
+// The currency of the organization's PayPal account. Selling in it means PayPal never converts
+// (no FX loss). Set NEXT_PUBLIC_ORG_CURRENCY; the sandbox business account holds CAD.
+const configured = process.env.NEXT_PUBLIC_ORG_CURRENCY as CurrencyCode | undefined;
+export const DEFAULT_CURRENCY: CurrencyCode = configured && configured in CURRENCIES ? configured : 'CAD';
+
 /** Converts a USD price in cents to `currency`, rounded to the nearest 5 minor units (so $3.50 -> 4.85, not 4.83). */
 export function convertUsdCents(usdCents: number, currency: CurrencyCode): number {
   if (currency === 'USD') return usdCents;

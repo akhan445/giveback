@@ -256,6 +256,7 @@ export type CaptureResult = {
   payer?: { email_address?: string; name?: { given_name?: string } };
   purchase_units?: {
     description?: string;
+    custom_id?: string;
     payments?: {
       captures?: {
         id: string;
@@ -267,12 +268,12 @@ export type CaptureResult = {
   }[];
 };
 
-export function createOrder(totalDecimal: string, currency: string, description: string, requestId: string) {
+export function createOrder(totalDecimal: string, currency: string, description: string, customId: string, requestId: string) {
   return post<{ id: string; status: string }>(
     '/v2/checkout/orders',
     {
       intent: 'CAPTURE',
-      purchase_units: [{ description, amount: { currency_code: currency, value: totalDecimal } }],
+      purchase_units: [{ description, custom_id: customId, amount: { currency_code: currency, value: totalDecimal } }],
     },
     requestId,
   );

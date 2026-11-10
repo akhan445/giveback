@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CATALOG, MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
-import { CURRENCIES, convertUsdCents, type CurrencyCode } from '@/lib/currency';
+import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '@/lib/currency';
+import { feeCoverCents } from '@/lib/fees';
 import { centsToDecimal } from '@/lib/money';
 import { CurrencyPicker } from './currency-picker';
 import styles from './pos.module.css';
@@ -95,7 +96,10 @@ export default function PosPage() {
   const [qty, setQty] = useState<Record<string, number>>({});
   const [donationInput, setDonationInput] = useState('');
   const [donationCents, setDonationCents] = useState(0);
-  const [currency, setCurrency] = useState<CurrencyCode>('USD');
+  const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
+  const [coverFees, setCoverFees] = useState(false);
+  const [saleNo, setSaleNo] = useState<number>();
+  const [stamp, setStamp] = useState<string>(); // receipt date/time, set on the client to avoid a server/client mismatch
   const [error, setError] = useState<string>();
   const [paid, setPaid] = useState<{ cents: number; currency: CurrencyCode; name: string | null }>();
   const slot = useRef<HTMLDivElement>(null);
@@ -105,17 +109,20 @@ export default function PosPage() {
   const inputValid = inputCents >= MIN_DONATION_CENTS && inputCents <= MAX_DONATION_CENTS;
   const lines = CATALOG.filter((c) => qty[c.id]);
   // Display total only. The server prices the order again from ids and quantities.
-  const totalCents =
+  const subtotalCents =
     lines.reduce((sum, c) => sum + priceOf(c.priceCents) * qty[c.id], 0) + donationCents;
+  const feeCents = coverFees ? feeCoverCents(subtotalCents, currency) : 0;
+  const totalCents = subtotalCents + feeCents;
 
   // The PayPal session is created once; this ref gives it the latest cart when the button is clicked.
   const orderBody = useMemo(
     () => ({
       items: lines.map((c) => ({ id: c.id, qty: qty[c.id] })),
       currency,
+      ...(coverFees && subtotalCents > 0 ? { coverFees: true } : {}),
       ...(donationCents > 0 ? { donationCents } : {}),
     }),
-    [lines, qty, donationCents, currency],
+    [lines, qty, donationCents, currency, coverFees, subtotalCents],
   );
   const bodyRef = useRef(orderBody);
   const totalRef = useRef({ cents: totalCents, currency });
@@ -124,12 +131,27 @@ export default function PosPage() {
     totalRef.current = { cents: totalCents, currency };
   });
 
+  const startReceipt = useCallback(() => {
+    fetch('/api/sales/next')
+      .then((r) => (r.ok ? (r.json() as Promise<{ number: number }>) : undefined))
+      .catch(() => undefined)
+      .then((d) => {
+        setSaleNo(d?.number);
+        setStamp(new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
+      });
+  }, []);
+  useEffect(() => {
+    startReceipt();
+  }, [startReceipt]);
+
   const newSale = useCallback(() => {
+    startReceipt();
     setQty({});
     setDonationInput('');
     setDonationCents(0);
+    setCoverFees(false);
     setPaid(undefined);
-  }, []);
+  }, [startReceipt]);
 
   useEffect(() => {
     if (!paid) return;
@@ -276,17 +298,24 @@ export default function PosPage() {
         </main>
 
         <aside className={styles.cart}>
-          <div className={styles.label}>Sale</div>
           <div className={styles.receipt}>
-            <div className={styles.label} style={{ color: 'var(--ink)' }}>
-              {ORG_NAME}
+            <div className={styles.rcHead}>
+              <span className={styles.rcOrg}>{ORG_NAME}</span>
+              <span className={styles.rcSub}>
+                {saleNo ? `Sale no. ${saleNo}` : 'New sale'}
+                {stamp ? ` · ${stamp}` : ''}
+              </span>
             </div>
+            <hr className={styles.rule} />
+            <div className={styles.rcItems}>
+            {subtotalCents === 0 && <p className={styles.rcEmpty}>Tap an item to start</p>}
             {lines.map((c) => (
               <SwipeRow key={c.id} onDelete={() => setQty((q) => ({ ...q, [c.id]: 0 }))}>
                 <div className={`${styles.line} ${styles.mono}`}>
                   <span>
                     {qty[c.id]} {c.name}
                   </span>
+                  <i />
                   <span>{centsToDecimal(priceOf(c.priceCents) * qty[c.id])}</span>
                 </div>
               </SwipeRow>
@@ -295,15 +324,46 @@ export default function PosPage() {
               <SwipeRow onDelete={() => setDonationCents(0)}>
                 <div className={`${styles.line} ${styles.mono}`}>
                   <span>Donation</span>
+                  <i />
                   <span>{centsToDecimal(donationCents)}</span>
                 </div>
               </SwipeRow>
             )}
-            {totalCents > 0 && <p className={styles.hint}>Swipe a row left to remove it</p>}
+            {feeCents > 0 && (
+              <SwipeRow onDelete={() => setCoverFees(false)}>
+                <div className={`${styles.line} ${styles.mono}`}>
+                  <span>Admin fees</span>
+                  <i />
+                  <span>{centsToDecimal(feeCents)}</span>
+                </div>
+              </SwipeRow>
+            )}
+            {subtotalCents > 0 && <p className={styles.swipeHint}>Swipe a row left to remove it</p>}
+            </div>
+            {subtotalCents > 0 && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={coverFees}
+                className={`${styles.feeBoxRow} ${coverFees ? styles.feeOn : ''}`}
+                onClick={() => setCoverFees((v) => !v)}
+              >
+                <span className={styles.feeCheck} aria-hidden="true">
+                  {coverFees ? '✓' : ''}
+                </span>
+                <span className={styles.feeText}>
+                  <b>Cover the PayPal fee</b>
+                  <small>Org keeps 100%</small>
+                </span>
+                <span className={styles.mono}>+{centsToDecimal(feeCoverCents(subtotalCents, currency))}</span>
+              </button>
+            )}
+            <hr className={styles.rule} />
             <div className={styles.total}>
               <span className={styles.label}>Total · {currency}</span>
               <b className={styles.mono}>{money(totalCents, currency)}</b>
             </div>
+            <div className={styles.rcFoot}>Thank you for giving</div>
           </div>
 
           {error && <p className={styles.err}>{error}</p>}

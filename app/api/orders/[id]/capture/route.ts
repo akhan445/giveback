@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { decimalToCents } from '@/lib/money';
+import { parseFeeCoverTag } from '@/lib/fees';
 import { captureOrder } from '@/lib/paypal';
 import { upsertPayment } from '@/lib/payments';
 
@@ -17,6 +18,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     orderId: result.id,
     amountCents: decimalToCents(capture.amount.value),
     currency: capture.amount.currency_code,
+    feeCoveredCents: parseFeeCoverTag(unit?.custom_id),
     feeCents: decimalToCents(capture.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
     status: capture.status,
     kind: unit?.description?.startsWith('Donation') ? 'donation' : 'sale',
