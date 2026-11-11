@@ -31,7 +31,7 @@ describe('timeAgo', () => {
 
 describe('goalStart', () => {
   it('defaults to the first of the current month', () => {
-    expect(goalStart({ name: 'x', goalCents: 1, start: null }, new Date('2026-11-10T12:00:00Z'))).toBe('2026-11-01');
-    expect(goalStart({ name: 'x', goalCents: 1, start: '2026-10-15' }, new Date('2026-11-10T12:00:00Z'))).toBe('2026-10-15');
+    expect(goalStart({ name: 'x', goalCents: 1, start: null, impact: null }, new Date('2026-11-10T12:00:00Z'))).toBe('2026-11-01');
+    expect(goalStart({ name: 'x', goalCents: 1, start: '2026-10-15', impact: null }, new Date('2026-11-10T12:00:00Z'))).toBe('2026-10-15');
   });
 });

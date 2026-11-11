@@ -44,3 +44,10 @@ INSERT INTO org_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_name  TEXT NOT NULL DEFAULT 'Holiday meals campaign';
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_cents INTEGER NOT NULL DEFAULT 800000 CHECK (goal_cents > 0);
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_start DATE;
+
+-- Impact widget settings. All nullable: null means "use the default for this organization type" (lib/impact.ts).
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_hero       TEXT;
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_cell       TEXT;
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_unit       TEXT;
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_done       TEXT;
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_unit_cents INTEGER CHECK (impact_unit_cents IS NULL OR impact_unit_cents > 0);

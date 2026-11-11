@@ -4,6 +4,7 @@
 // Studio's data and filters) and hands plain values to the shared components in ./live-widgets.
 import type { AgWidgetField, AgWidgetParams } from 'ag-studio';
 import { recentActivity } from '@/lib/campaign';
+import { parseImpact } from '@/lib/impact';
 import { ActivityFeed, GoalCard, ImpactFill, ImpactGrid, themeClass } from './live-widgets';
 import { keyOf, useWidgetRows } from './use-widget-rows';
 
@@ -16,9 +17,9 @@ function useCampaign({ widgetApi, dataMapping }: AgWidgetParams) {
   const goal = m.goal?.[0];
   const name = m.name?.[0];
   const since = m.since?.[0];
-  const theme = m.theme?.[0];
-  const rows = useWidgetRows(widgetApi, [raised, goal, name, since, theme]);
-  if (!raised || !goal || !name || !since || !theme) return { missing: true as const };
+  const impact = m.impact?.[0];
+  const rows = useWidgetRows(widgetApi, [raised, goal, name, since, impact]);
+  if (!raised || !goal || !name || !since || !impact) return { missing: true as const };
   const r = rows?.[0];
   return {
     missing: false as const,
@@ -26,23 +27,23 @@ function useCampaign({ widgetApi, dataMapping }: AgWidgetParams) {
     goal: Number(r?.[keyOf(goal)] ?? 0),
     name: String(r?.[keyOf(name)] ?? ''),
     since: String(r?.[keyOf(since)] ?? '').slice(0, 10),
-    theme: String(r?.[keyOf(theme)] ?? 'other'),
+    impact: parseImpact(String(r?.[keyOf(impact)] ?? '')),
   };
 }
 
-const WHAT = 'raised, goal, name, start and organization type';
+const WHAT = 'raised, goal, name, start and impact settings';
 const Themed = ({ children }: { children: React.ReactNode }) => <div className={themeClass} style={{ height: '100%' }}>{children}</div>;
 
 export function ImpactFillWidget(p: AgWidgetParams) {
   const c = useCampaign(p);
   if (c.missing) return <Missing what={WHAT} />;
-  return <Themed><ImpactFill raised={c.raised} goal={c.goal} theme={c.theme} /></Themed>;
+  return <Themed><ImpactFill raised={c.raised} goal={c.goal} impact={c.impact} /></Themed>;
 }
 
 export function ImpactGridWidget(p: AgWidgetParams) {
   const c = useCampaign(p);
   if (c.missing) return <Missing what={WHAT} />;
-  return <Themed><ImpactGrid raised={c.raised} goal={c.goal} theme={c.theme} /></Themed>;
+  return <Themed><ImpactGrid raised={c.raised} goal={c.goal} impact={c.impact} /></Themed>;
 }
 
 export function GoalWidget(p: AgWidgetParams) {

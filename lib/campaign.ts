@@ -1,7 +1,8 @@
 // The fundraising goal shown on the live display, and the leaderboard of who is giving toward it.
+import type { Impact } from './impact';
 import type { GiftRow } from './studio-data';
 
-export type Goal = { name: string; goalCents: number; start: string | null }; // start: YYYY-MM-DD, null = first of this month
+export type Goal = { name: string; goalCents: number; start: string | null; impact: Partial<Impact> | null }; // start: YYYY-MM-DD, null = first of this month
 
 /** First day of the goal period as an ISO date (YYYY-MM-DD). */
 export const goalStart = (g: Goal, now = new Date()) => g.start ?? `${now.toISOString().slice(0, 7)}-01`;

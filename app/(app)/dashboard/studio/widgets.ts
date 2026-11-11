@@ -34,7 +34,7 @@ const campaignMapping = {
   goal: { type: 'field', supportedRoles: ['numeric'], required: true, aiDescription: 'The fundraising goal (sum of campaign goal).' },
   name: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The goal name.' },
   since: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The date the goal period started.' },
-  theme: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The organization type; it picks the picture and the unit (meals, trees, animals...).' },
+  impact: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The impact settings (picture, grid icon, unit and cost per unit); set in Settings.' },
 };
 const campaignForm = (params: AgWidgetFormParams) =>
   params.createDefaults({
@@ -43,10 +43,10 @@ const campaignForm = (params: AgWidgetFormParams) =>
       { key: 'goal', label: 'Goal' },
       { key: 'name', label: 'Goal name' },
       { key: 'since', label: 'Started' },
-      { key: 'theme', label: 'Organization type' },
+      { key: 'impact', label: 'Impact settings' },
     ],
   });
-const campaignAi = 'raised = sum of campaign raised, goal = sum of campaign goal, name = campaign name, since = campaign since, theme = campaign theme.';
+const campaignAi = 'raised = sum of campaign raised, goal = sum of campaign goal, name = campaign name, since = campaign since, impact = campaign impact.';
 const icon = (path: string) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6">${path}</svg>`;
 
 const impactFill = {

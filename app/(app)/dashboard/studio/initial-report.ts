@@ -308,7 +308,7 @@ const recurring: AgPageState = {
   },
 };
 
-const campaignMapping = { raised: [sum('campaign.raised')], goal: [sum('campaign.goal')], name: [{ id: 'campaign.name' }], since: [{ id: 'campaign.since' }], theme: [{ id: 'campaign.theme' }] } as never;
+const campaignMapping = { raised: [sum('campaign.raised')], goal: [sum('campaign.goal')], name: [{ id: 'campaign.name' }], since: [{ id: 'campaign.since' }], impact: [{ id: 'campaign.impact' }] } as never;
 
 const live: AgPageState = {
   id: 'live',

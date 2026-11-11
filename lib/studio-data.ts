@@ -9,6 +9,7 @@ import { countryName, countryRegion } from './countries';
 import { coordsFor } from './geo';
 import { getGoal, getOrgProfile, toOrgCents } from './history';
 import { goalStart } from './campaign';
+import { resolveImpact } from './impact';
 
 export type GiftRow = {
   id: string;
@@ -51,7 +52,7 @@ export type MonthRow = {
 export type ItemRow = { id: string; giftId: string; item: string; quantity: number; amount: number };
 
 // One row: the fundraising goal and what has been raised toward it (everything since `since`).
-export type CampaignRow = { id: string; name: string; goal: number; raised: number; since: string; theme: string };
+export type CampaignRow = { id: string; name: string; goal: number; raised: number; since: string; impact: string }; // impact: JSON of the resolved Impact (picture, grid, unit, cost)
 
 export type StudioData = { asOf: string; org: string; gifts: GiftRow[]; months: MonthRow[]; items: ItemRow[]; campaign: CampaignRow[] };
 
@@ -160,7 +161,7 @@ export async function getStudioData(): Promise<StudioData> {
 
   const since = goalStart(goal);
   const raised = gifts.filter((g) => g.date.slice(0, 10) >= since).reduce((t, g) => t + g.amount, 0);
-  const campaign: CampaignRow[] = [{ id: 'goal', name: goal.name, goal: dollars(goal.goalCents), raised: Math.round(raised * 100) / 100, since, theme: org.orgType }];
+  const campaign: CampaignRow[] = [{ id: 'goal', name: goal.name, goal: dollars(goal.goalCents), raised: Math.round(raised * 100) / 100, since, impact: JSON.stringify(resolveImpact(org.orgType, goal.impact)) }];
 
   return { asOf: new Date().toISOString(), org: org.name, gifts, months, items, campaign };
 }
