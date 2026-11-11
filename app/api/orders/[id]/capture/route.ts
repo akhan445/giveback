@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { decimalToCents } from '@/lib/money';
-import { parseFeeCoverTag } from '@/lib/fees';
+import { parseOrderTag } from '@/lib/fees';
 import { captureOrder } from '@/lib/paypal';
 import { upsertPayment } from '@/lib/payments';
 
@@ -13,12 +13,16 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const capture = unit?.payments?.captures?.[0];
   if (!capture) return NextResponse.json({ error: 'no capture in response' }, { status: 502 });
 
+  const tag = parseOrderTag(unit?.custom_id);
+  const name = [result.payer?.name?.given_name, result.payer?.name?.surname].filter(Boolean).join(' ');
   await upsertPayment({
     captureId: capture.id,
     orderId: result.id,
     amountCents: decimalToCents(capture.amount.value),
     currency: capture.amount.currency_code,
-    feeCoveredCents: parseFeeCoverTag(unit?.custom_id),
+    feeCoveredCents: tag.feeCoverCents,
+    anonymous: tag.anonymous,
+    payerName: name || null,
     feeCents: decimalToCents(capture.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
     status: capture.status,
     kind: unit?.description?.startsWith('Donation') ? 'donation' : 'sale',

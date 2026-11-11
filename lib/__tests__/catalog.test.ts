@@ -46,5 +46,9 @@ describe('cover fees', () => {
     expect(parseFeeCoverTag(feeCoverTag(87))).toBe(87);
     expect(parseFeeCoverTag('something-else')).toBe(0);
     expect(parseFeeCoverTag(undefined)).toBe(0);
+    const { parseOrderTag } = await import('../fees');
+    expect(parseOrderTag(feeCoverTag(87, true))).toEqual({ feeCoverCents: 87, anonymous: true });
+    expect(parseOrderTag(feeCoverTag(0))).toEqual({ feeCoverCents: 0, anonymous: false });
+    expect(parseOrderTag('fee_cover:87')).toEqual({ feeCoverCents: 87, anonymous: false });
   });
 });

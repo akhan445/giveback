@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS fee_covered_cents INTEGER NOT NULL DEFAULT 0 CHECK (fee_covered_cents >= 0);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payer_name TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS anonymous BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS payments_paid_at_idx ON payments (paid_at);
 
 CREATE TABLE IF NOT EXISTS webhook_events (

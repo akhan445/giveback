@@ -36,6 +36,7 @@ const SALE_ITEMS = [
   ['Charity T-shirt', 2500],
   ['Raffle ticket', 500],
 ] as const;
+const NAMES = ['Anna Lee', 'Sam Okafor', 'Priya Nair', 'Marcus Webb', 'Elena Rossi', 'Tom Hughes', 'Aisha Khan', 'Jordan Blake', 'Mei Tanaka', 'Chris Dubois', 'Fatima Noor', 'Luca Bianchi', 'Olivia Grant', 'Daniel Park', 'Sofia Alvarez'];
 const CURRENCY_MIX: CurrencyCode[] = ['CAD', 'CAD', 'CAD', 'CAD', 'CAD', 'USD', 'USD', 'EUR', 'GBP'];
 const toOrgCents = (cents: number, cur: CurrencyCode) =>
   Math.round((cents / CURRENCIES[cur].rate) * CURRENCIES[DEFAULT_CURRENCY].rate);
@@ -49,7 +50,7 @@ async function main() {
   await pool.query("DELETE FROM payments WHERE source = 'seed'");
 
   let n = 0;
-  const rowsOut: { id: string; amount: number; fee: number; cover: number; cur: string; kind: string; desc: string; at: Date }[] = [];
+  const rowsOut: { id: string; amount: number; fee: number; cover: number; cur: string; kind: string; desc: string; at: Date; name: string; anon: boolean }[] = [];
   for (const m of MONTHS) {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + m.offset, 1));
     const daysInMonth = m.offset === 0 ? Math.max(1, now.getUTCDate() - 1) : new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
@@ -80,7 +81,7 @@ async function main() {
       const fee = Math.round((amount * 289) / 10_000) + convertUsdCents(30, cur);
       const day = 1 + Math.floor(rand() * daysInMonth);
       const paidAt = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), day, 9 + Math.floor(rand() * 10), Math.floor(rand() * 60)));
-      rowsOut.push({ id: `SEED-${++n}`, amount, fee, cover, cur, kind: isDonation ? 'donation' : 'sale', desc: description, at: paidAt });
+      rowsOut.push({ id: `SEED-${++n}`, amount, fee, cover, cur, kind: isDonation ? 'donation' : 'sale', desc: description, at: paidAt, name: NAMES[Math.floor(rand() * NAMES.length)], anon: rand() < 0.25 });
       volume += toOrgCents(amount, cur);
     }
   }
@@ -88,10 +89,10 @@ async function main() {
   for (let i = 0; i < rowsOut.length; i += CHUNK) {
     const c = rowsOut.slice(i, i + CHUNK);
     await pool.query(
-      `INSERT INTO payments (paypal_capture_id, amount_cents, fee_cents, fee_covered_cents, currency, status, kind, description, source, paid_at)
-       SELECT id, amount, fee, cover, cur, 'COMPLETED', kind, descr, 'seed', at
-       FROM unnest($1::text[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::text[], $8::timestamptz[]) AS t(id, amount, fee, cover, cur, kind, descr, at)`,
-      [c.map((r) => r.id), c.map((r) => r.amount), c.map((r) => r.fee), c.map((r) => r.cover), c.map((r) => r.cur), c.map((r) => r.kind), c.map((r) => r.desc), c.map((r) => r.at)],
+      `INSERT INTO payments (paypal_capture_id, amount_cents, fee_cents, fee_covered_cents, currency, status, kind, description, source, paid_at, payer_name, anonymous)
+       SELECT id, amount, fee, cover, cur, 'COMPLETED', kind, descr, 'seed', at, pname, anon
+       FROM unnest($1::text[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::text[], $8::timestamptz[], $9::text[], $10::boolean[]) AS t(id, amount, fee, cover, cur, kind, descr, at, pname, anon)`,
+      [c.map((r) => r.id), c.map((r) => r.amount), c.map((r) => r.fee), c.map((r) => r.cover), c.map((r) => r.cur), c.map((r) => r.kind), c.map((r) => r.desc), c.map((r) => r.at), c.map((r) => r.name), c.map((r) => r.anon)],
     );
   }
   const { rows } = await pool.query(

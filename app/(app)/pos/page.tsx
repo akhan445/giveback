@@ -99,6 +99,7 @@ export default function PosPage() {
   const [donationCents, setDonationCents] = useState(0);
   const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
   const [coverFees, setCoverFees] = useState(false);
+  const [anonymous, setAnonymous] = useState(false);
   const [saleNo, setSaleNo] = useState<number>();
   const [stamp, setStamp] = useState<string>(); // receipt date/time, set on the client to avoid a server/client mismatch
   const [error, setError] = useState<string>();
@@ -121,9 +122,10 @@ export default function PosPage() {
       items: lines.map((c) => ({ id: c.id, qty: qty[c.id] })),
       currency,
       ...(coverFees && subtotalCents > 0 ? { coverFees: true } : {}),
+      ...(anonymous ? { anonymous: true } : {}),
       ...(donationCents > 0 ? { donationCents } : {}),
     }),
-    [lines, qty, donationCents, currency, coverFees, subtotalCents],
+    [lines, qty, donationCents, currency, coverFees, anonymous, subtotalCents],
   );
   const bodyRef = useRef(orderBody);
   const totalRef = useRef({ cents: totalCents, currency });
@@ -151,6 +153,7 @@ export default function PosPage() {
     setDonationInput('');
     setDonationCents(0);
     setCoverFees(false);
+    setAnonymous(false);
     setPaid(undefined);
   }, [startReceipt]);
 
@@ -353,6 +356,23 @@ export default function PosPage() {
                   <small>Org keeps 100%</small>
                 </span>
                 <span className={styles.mono}>+{centsToDecimal(feeCoverCents(subtotalCents, currency))}</span>
+              </button>
+            )}
+            {subtotalCents > 0 && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={anonymous}
+                className={`${styles.feeBoxRow} ${anonymous ? styles.feeOn : ''}`}
+                onClick={() => setAnonymous((v) => !v)}
+              >
+                <span className={styles.feeCheck} aria-hidden="true">
+                  {anonymous ? '✓' : ''}
+                </span>
+                <span className={styles.feeText}>
+                  <b>Give anonymously</b>
+                  <small>{anonymous ? 'Shown as Anonymous on screens' : 'Your PayPal name shows on screens'}</small>
+                </span>
               </button>
             )}
             <hr className={styles.rule} />

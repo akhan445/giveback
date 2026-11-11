@@ -20,6 +20,7 @@ export const orderRequestSchema = z.object({
   donationCents: z.number().int().min(MIN_DONATION_CENTS).max(MAX_DONATION_CENTS).optional(),
   currency: z.enum(CURRENCY_CODES).default('USD'),
   coverFees: z.boolean().optional(),
+  anonymous: z.boolean().optional(), // supporter does not want their name shown publicly
 });
 export type OrderRequest = z.input<typeof orderRequestSchema>;
 

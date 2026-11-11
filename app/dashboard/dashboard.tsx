@@ -19,7 +19,7 @@ import {
   type AgStudioMode,
 } from 'ag-studio';
 import { AgStudio, AgStudioProvider } from 'ag-studio-react';
-import type { DashboardData } from '@/lib/dashboard-data';
+import type { StudioData } from '@/lib/studio-data';
 import { AppShell } from './components/app-shell';
 import {
   CreateReportDialog,
@@ -55,7 +55,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 type DashboardProps = {
-  data: DashboardData;
+  data: StudioData;
   licenseKey?: string;
   /** OpenAI models the assistant may use; omitted when no key is configured, which hides the assistant. */
   aiModels?: string[];

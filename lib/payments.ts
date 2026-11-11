@@ -2,7 +2,7 @@
 // payment; both go through upsertPayment, keyed by PayPal's capture id, so it is stored once.
 import type { PoolClient } from 'pg';
 import { db } from './db';
-import { parseFeeCoverTag } from './fees';
+import { parseOrderTag } from './fees';
 import { decimalToCents } from './money';
 
 export type PaymentInput = {
@@ -16,6 +16,8 @@ export type PaymentInput = {
   kind: 'sale' | 'donation';
   description?: string | null;
   payerEmail?: string | null;
+  payerName?: string | null;
+  anonymous?: boolean; // the supporter asked not to be named publicly
   source: 'capture' | 'webhook' | 'seed';
 };
 
@@ -23,16 +25,18 @@ type Queryable = Pick<PoolClient, 'query'>;
 
 export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
   await q.query(
-    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source, payer_name, anonymous)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      ON CONFLICT (paypal_capture_id) DO UPDATE SET
        status        = EXCLUDED.status,
        fee_cents     = GREATEST(payments.fee_cents, EXCLUDED.fee_cents),
        fee_covered_cents = GREATEST(payments.fee_covered_cents, EXCLUDED.fee_covered_cents),
        paypal_order_id = COALESCE(payments.paypal_order_id, EXCLUDED.paypal_order_id),
        description   = COALESCE(payments.description, EXCLUDED.description),
-       payer_email   = COALESCE(payments.payer_email, EXCLUDED.payer_email)`,
-    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source],
+       payer_email   = COALESCE(payments.payer_email, EXCLUDED.payer_email),
+       payer_name    = COALESCE(payments.payer_name, EXCLUDED.payer_name),
+       anonymous     = payments.anonymous OR EXCLUDED.anonymous`,
+    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source, p.payerName ?? null, p.anonymous ?? false],
   );
 }
 
@@ -63,6 +67,7 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
       return 'duplicate';
     }
     const r = event.resource;
+    const tag = parseOrderTag(r?.custom_id);
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' && r?.id && r.amount) {
       await upsertPayment(
         {
@@ -71,7 +76,8 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
           amountCents: decimalToCents(r.amount.value),
           currency: r.amount.currency_code,
           feeCents: decimalToCents(r.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
-          feeCoveredCents: parseFeeCoverTag(r.custom_id),
+          feeCoveredCents: tag.feeCoverCents,
+          anonymous: tag.anonymous,
           status: 'COMPLETED',
           kind: 'sale',
           source: 'webhook',
