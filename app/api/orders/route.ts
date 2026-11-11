@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   // The phone must be able to reach this address: set NEXT_PUBLIC_APP_URL to the public site (not localhost).
   const base = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, '');
   const phone = parsed.data.phone
-    ? { returnUrl: `${base}/pay/return`, cancelUrl: `${base}/pay/cancelled`, brandName: (await getOrgProfile()).name }
+    ? { returnUrl: `${base}${parsed.data.from === 'donate' ? '/pay/donated' : '/pay/return'}`, cancelUrl: `${base}/pay/cancelled`, brandName: (await getOrgProfile()).name }
     : undefined;
 
   const order = await createOrder(centsToDecimal(priced.totalCents), priced.currency, priced.description, feeCoverTag(priced.feeCoverCents, parsed.data.anonymous === true), randomUUID(), phone);

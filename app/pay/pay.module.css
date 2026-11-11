@@ -23,3 +23,7 @@
 .box { width: 22px; height: 22px; border: 1.5px solid var(--ink); display: grid; place-items: center; font-weight: 700; flex: none; }
 .go { margin-top: 6px; border: 0; border-radius: 2px; background: var(--a); color: #fbfcf7; padding: 16px; font: 600 13px var(--gb-mono), monospace; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
 .go:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Link under the PAID confirmation (display donors only) */
+.again { margin-top: 6px; border: 1.5px solid var(--ink); border-radius: 2px; padding: 12px 20px; color: var(--ink); text-decoration: none; font: 600 12px var(--gb-mono), monospace; letter-spacing: .08em; text-transform: uppercase; }
+.again:active { background: var(--ink); color: var(--surf); }

@@ -28,7 +28,7 @@ export function DonateForm({ org, goalName, currency, unit, unitCents }: { org: 
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ donationCents: cents, currency, phone: true, ...(anonymous ? { anonymous: true } : {}) }),
+        body: JSON.stringify({ donationCents: cents, currency, phone: true, from: 'donate', ...(anonymous ? { anonymous: true } : {}) }),
       });
       const data = (await res.json()) as { approveUrl?: string; error?: string };
       if (!res.ok || !data.approveUrl) throw new Error(data.error ?? 'Could not start the payment');
