@@ -105,6 +105,12 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
   const [history, setHistory] = useState<StudioHistory>(NO_HISTORY);
   const [mode, setMode] = useState<AgStudioMode>('view');
   const [dialog, setDialog] = useState<DashboardDialog>(null);
+  // A short confirmation after Save or Discard, so the buttons visibly do something.
+  const [notice, setNotice] = useState<string | null>(null);
+  const say = (text: string) => {
+    setNotice(text);
+    setTimeout(() => setNotice(null), 3000);
+  };
 
   const { reports } = store;
   // The open report, as it was last saved.
@@ -182,9 +188,14 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
       updatedAt: new Date().toISOString(),
     }));
     console.log('[AG Studio] saved report', saved.name, current);
+    // Done editing: back to the view, with a confirmation.
+    changeMode('view');
+    say('Saved');
   };
-  const discard = () =>
-    load(saved, reportState.pageToSelect(saved.state, state.selectedPageId));
+  const discard = () => {
+    load(saved, reportState.pageToSelect(saved.state, state.selectedPageId), 'view');
+    say('Changes discarded');
+  };
   // Anything that leaves the current report or edit mode asks first when it has unsaved changes.
   const guard = (then: () => void) => {
     const api = apiRef.current;
@@ -290,6 +301,7 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
         onRedo={() => apiRef.current?.redo()}
         onSave={save}
         onDiscard={discard}
+        notice={notice}
         onDisplay={() => setDisplay(true)}
         onAgent={ai ? openAgent : undefined}
         onEditingChange={(next) =>

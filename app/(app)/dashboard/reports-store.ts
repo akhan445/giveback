@@ -1,8 +1,9 @@
 // Saved reports, kept in this browser's localStorage. Studio's state has no page names, so each
 // report carries its page titles alongside the AG Studio state.
 //
-// The built-in report comes from ./studio/initial-report.ts until it is saved;
-// after that the saved copy wins until it is reset to default.
+// The built-in report comes from ./studio/initial-report.ts. A saved copy wins only while it was made
+// from the same code (`basedOn`); when initial-report.ts or the page titles change, the code wins, so
+// updates to the built-in report always show up instead of an old copy staying frozen in the browser.
 
 import type { AgReportState } from 'ag-studio';
 import { dashboardReport } from './studio/initial-report';
@@ -14,6 +15,8 @@ export type SavedReport = {
   pageTitles: Record<string, string>;
   state: AgReportState;
   updatedAt: string;
+  /** Built-in report only: fingerprint of the code this copy was made from. */
+  basedOn?: string;
 };
 
 export type StoredReports = { reports: SavedReport[]; activeId: string };
@@ -32,6 +35,14 @@ const defaultPageTitles: Record<string, string> = {
   recurring: 'Recurring Supporters',
 };
 
+// Small string hash of the built-in report's code (state and page titles).
+const hashOf = (text: string) => {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+};
+const CODE_VERSION = hashOf(JSON.stringify([dashboardReport, defaultPageTitles]));
+
 export const defaultReport = (): SavedReport => ({
   id: BUILT_IN_ID,
   name: 'giveback reports',
@@ -39,6 +50,7 @@ export const defaultReport = (): SavedReport => ({
   pageTitles: defaultPageTitles,
   state: dashboardReport,
   updatedAt: new Date(0).toISOString(),
+  basedOn: CODE_VERSION,
 });
 
 export const newId = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -86,6 +98,12 @@ export const initialReports = (): StoredReports => ({ reports: [defaultReport()]
 
 // --- Storage ----------------------------------------------------------------------
 
+// The saved built-in report, unless it is missing or was made from older code.
+const builtInFrom = (reports: SavedReport[]) => {
+  const saved = reports.find((r) => r.id === BUILT_IN_ID);
+  return saved && saved.basedOn === CODE_VERSION ? saved : defaultReport();
+};
+
 export function loadReports(): StoredReports {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -93,7 +111,7 @@ export function loadReports(): StoredReports {
     const stored = JSON.parse(raw) as StoredReports;
     // The built-in report is always listed first, from code unless a saved copy exists.
     const reports = [
-      stored.reports.find((r) => r.id === BUILT_IN_ID) ?? defaultReport(),
+      builtInFrom(stored.reports),
       ...stored.reports.filter((r) => r.id !== BUILT_IN_ID),
     ];
     const activeId = reports.some((r) => r.id === stored.activeId) ? stored.activeId : BUILT_IN_ID;

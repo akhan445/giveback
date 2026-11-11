@@ -19,6 +19,7 @@ export function ReportHeader({
   onRedo,
   onSave,
   onDiscard,
+  notice,
   onDisplay,
   onAgent,
   onEditingChange,
@@ -34,6 +35,7 @@ export function ReportHeader({
   onRedo: () => void;
   onSave: () => void;
   onDiscard: () => void;
+  notice?: string | null;
   onDisplay: () => void;
   onAgent?: () => void;
   onEditingChange: (editing: boolean) => void;
@@ -46,6 +48,11 @@ export function ReportHeader({
         <DataFreshness asOf={asOf} />
       </div>
       <div className="flex items-center gap-2">
+        {notice && (
+          <span role="status" className="mr-2 rounded-full bg-pp-highlight px-3 py-1 text-sm font-semibold text-pp-blue">
+            {notice}
+          </span>
+        )}
         {editing && pageIsEmpty && (
           <p className="mr-2 text-sm text-pp-muted">
             Drag a widget from <span className="font-semibold text-pp-navy">Compose</span> to get started.
