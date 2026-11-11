@@ -222,7 +222,7 @@ function HistoryChart({ data, money0, onAsk }: { data: OverviewData; money0: (c:
     <section className={styles.card}>
       <div className={styles.chartHead}>
         <div className={styles.label}>Raised by month · this year vs past years avg</div>
-        <div className={styles.legend}><span style={{ color: 'var(--red)' }}>┆ seasonal markers</span><span><b style={{ color: 'var(--a)' }}>●</b> this year</span><span><span style={{ background: '#d9e1c6', padding: '0 7px' }} /> past years avg</span><span>◌ projection</span></div>
+        <div className={styles.legend}><span style={{ color: 'var(--red)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 0, height: 14, borderLeft: '2px dashed var(--red)' }} />seasonal markers</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4f6b3a' }} />this year</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 10, background: '#d9e1c6' }} />past years avg</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#fcfcf9', border: '2px solid #4f6b3a', boxSizing: 'border-box' }} />projection</span></div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Raised by month" style={{ fontFamily: 'var(--gb-mono), monospace', fontSize: 12, fill: '#6b7563' }} onMouseLeave={() => setHover(null)}>
         {ticks.map((t) => <g key={t}><line x1={pl} x2={W} y1={Y(t)} y2={Y(t)} stroke="#dfe3d3" /><text x={0} y={Y(t) + 4}>{money0(t)}</text></g>)}
