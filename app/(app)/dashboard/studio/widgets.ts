@@ -131,5 +131,4 @@ const activity = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const giveWidgets = createWidgets<any>({
   additionalTypes: [worldMap as never, impactFill as never, impactGrid as never, goalCard as never, activity as never],
-  menu: [{ label: 'giveback', widgetIds: ['worldMap', 'impactFill', 'impactGrid', 'goalCard', 'activity'] }],
 });
