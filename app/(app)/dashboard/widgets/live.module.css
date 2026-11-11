@@ -79,3 +79,9 @@
 .close:hover { color: var(--lv-ink); border-color: var(--lv-ink); }
 @media (max-width: 900px) { .overlay { grid-template-columns: 1fr; overflow-y: auto; grid-template-rows: auto; } }
 @media (prefers-reduced-motion: reduce) { .live i { animation: none; } }
+
+/* Scan-to-donate code on the full-screen display */
+.donate { display: flex; flex-direction: row; align-items: center; gap: clamp(10px, 1.2vw, 20px); }
+.donate img { width: clamp(84px, 14vh, 150px); height: clamp(84px, 14vh, 150px); background: #fff; padding: 6px; border-radius: 2px; image-rendering: pixelated; flex: none; }
+.donateText { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.donateText b { font-size: clamp(15px, 2.2vh, 22px); font-weight: 600; }

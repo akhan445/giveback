@@ -5,6 +5,7 @@
 // payments. The same components render inside AG Studio (as custom widgets, fed by Studio's data)
 // and in the full-screen display (fed by the polled report data), so they always match.
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import QRCode from 'qrcode';
 import { timeAgo, type Activity } from '@/lib/campaign';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { unitsFor, type Impact } from '@/lib/impact';
@@ -157,6 +158,32 @@ export function ActivityFeed({ rows }: { rows: Activity[] }) {
           })}
         </ol>
       )}
+    </div>
+  );
+}
+
+// --- Scan to donate -------------------------------------------------------------------------
+
+/** A QR code to the public donate page, so people watching the screen can give from their own phone. */
+export function DonateQr() {
+  const [qr, setQr] = useState<string>();
+  useEffect(() => {
+    // NEXT_PUBLIC_APP_URL lets the screen be opened on localhost while the code still points at the public site.
+    const base = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+    QRCode.toDataURL(`${base}/pay/donate`, { width: 400, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0e2a1b', light: '#ffffff' } })
+      .then(setQr)
+      .catch(() => {});
+  }, []);
+  if (!qr) return null;
+  return (
+    <div className={`${s.box} ${s.donate}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={qr} alt="QR code to donate" />
+      <div className={s.donateText}>
+        <span className={s.label}>Scan to donate</span>
+        <b>Give from your phone</b>
+        <span className={s.sub}>Any amount, with PayPal</span>
+      </div>
     </div>
   );
 }

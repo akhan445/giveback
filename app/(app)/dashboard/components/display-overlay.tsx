@@ -8,7 +8,7 @@ import { recentActivity } from '@/lib/campaign';
 import { parseImpact } from '@/lib/impact';
 import type { StudioData } from '@/lib/studio-data';
 import {
-  ActivityFeed, GoalCard, ImpactFill, ImpactGrid,
+  ActivityFeed, DonateQr, GoalCard, ImpactFill, ImpactGrid,
   closeClass, colClass, displayClass, liveClass, overlayClass, panelAutoClass, panelClass,
 } from '../widgets/live-widgets';
 
@@ -52,6 +52,7 @@ export function DisplayOverlay({ data, onClose }: { data: StudioData; onClose: (
       </div>
       <div className={colClass}>
         <div className={panelClass}><ActivityFeed rows={feed} /></div>
+        <div className={panelAutoClass}><DonateQr /></div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { centsToDecimal } from '@/lib/money';
 import { feeCoverTag } from '@/lib/fees';
 import { approveLink, createOrder } from '@/lib/paypal';
 import { getOrgProfile } from '@/lib/history';
+import { allow, clientKey } from '@/lib/rate-limit';
 
 // Creates a PayPal order. The price is computed here from server-side data, never from the client.
 // With `phone: true` the supporter pays on their own phone: we also return the link to open there
@@ -20,8 +21,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 
-  // The phone must be able to reach this address: set APP_URL to the public site (not localhost).
-  const base = (process.env.APP_URL ?? new URL(req.url).origin).replace(/\/$/, '');
+  // QR / phone orders can be started by anyone who opens the public donate page, so pace them per device.
+  if (parsed.data.phone && !allow(clientKey(req.headers))) {
+    return NextResponse.json({ error: 'Too many attempts. Please wait a few minutes and try again.' }, { status: 429 });
+  }
+
+  // The phone must be able to reach this address: set NEXT_PUBLIC_APP_URL to the public site (not localhost).
+  const base = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, '');
   const phone = parsed.data.phone
     ? { returnUrl: `${base}/pay/return`, cancelUrl: `${base}/pay/cancelled`, brandName: (await getOrgProfile()).name }
     : undefined;
