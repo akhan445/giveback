@@ -4,7 +4,7 @@
 // plates (or trees, paws...) for the milestone, a "raised so far" card and a feed of the latest
 // payments. The same components render inside AG Studio (as custom widgets, fed by Studio's data)
 // and in the full-screen display (fed by the polled report data), so they always match.
-import { useEffect, useId, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { timeAgo, type Activity } from '@/lib/campaign';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { unitsFor, type Impact } from '@/lib/impact';
@@ -18,7 +18,7 @@ const pctOf = (raised: number, goal: number) => (goal > 0 ? Math.min(1, Math.max
 
 // --- The picture that fills -------------------------------------------------------------
 
-export function ImpactFill({ raised, goal, impact, label = 'Progress to goal' }: { raised: number; goal: number; impact: Impact; label?: string }) {
+export function ImpactFill({ raised, goal, impact, label = 'Goal' }: { raised: number; goal: number; impact: Impact; label?: string }) {
   const art = HERO[impact.hero];
   const p = pctOf(raised, goal);
   const id = useId();
@@ -121,14 +121,30 @@ export function ActivityFeed({ rows }: { rows: Activity[] }) {
     const id = setInterval(tick, 15_000);
     return () => clearInterval(id);
   }, []);
+  // Show only as many rows as fit, so the last one is never cut off.
+  const listRef = useRef<HTMLOListElement>(null);
+  const [fit, setFit] = useState(8);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const measure = () => {
+      // The tallest row (a new row is still growing while it animates in).
+      const tallest = Math.max(0, ...[...el.querySelectorAll('li')].map((li) => li.offsetHeight));
+      if (tallest > 0) setFit(Math.max(1, Math.floor(el.clientHeight / tallest)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rows.length]);
   return (
     <div className={s.box}>
       <span className={s.label}>Latest payments <em>live</em></span>
       {rows.length === 0 ? (
         <p className={s.sub}>Waiting for the first payment.</p>
       ) : (
-        <ol className={s.list}>
-          {rows.map((r) => {
+        <ol className={s.list} ref={listRef}>
+          {rows.slice(0, fit).map((r) => {
             const fresh = now > 0 && now - Date.parse(r.at) < FRESH_MS;
             return (
               <li key={r.id} className={`${s.row} ${fresh ? s.fresh : ''}`}>

@@ -313,9 +313,9 @@ const campaignMapping = { raised: [sum('campaign.raised')], goal: [sum('campaign
 const live: AgPageState = {
   id: 'live',
   widgets: {
-    fill: { type: 'impactFill' as 'value', dataMapping: campaignMapping, format: title('Goal') },
-    grid: { type: 'impactGrid' as 'value', dataMapping: campaignMapping, format: title('Impact') },
-    raised: { type: 'goalCard' as 'value', dataMapping: campaignMapping, format: title('Raised so far') },
+    fill: { type: 'impactFill' as 'value', dataMapping: campaignMapping },
+    grid: { type: 'impactGrid' as 'value', dataMapping: campaignMapping },
+    raised: { type: 'goalCard' as 'value', dataMapping: campaignMapping },
     feed: {
       type: 'activity' as 'value',
       dataMapping: {
@@ -325,19 +325,18 @@ const live: AgPageState = {
         date: [{ id: 'gifts.date' }],
         anonymous: [{ id: 'gifts.anonymous' }],
       } as never,
-      format: title('Latest payments'),
     },
   },
   widgetLayout: {
-    fill: at(0, 0, 6, 24),
-    grid: at(6, 0, 10, 24),
-    raised: at(16, 0, 8, 8),
-    feed: at(16, 8, 8, 16),
+    fill: at(0, 0, 6, 38),
+    grid: at(6, 0, 10, 38),
+    raised: at(16, 0, 8, 13),
+    feed: at(16, 13, 8, 25),
   },
 };
 
 // The report opens on its first page.
 export const dashboardReport: AgReportState = {
-  selectedPageId: money.id,
+  selectedPageId: live.id,
   pages: [live, money, reach, cashback, supporters, recurring],
 };

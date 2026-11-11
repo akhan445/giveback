@@ -23,11 +23,16 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
   // Impact: custom = the organization has its own choices; otherwise the defaults for its type apply.
   const [custom, setCustom] = useState(initialGoal.impact !== null);
   const [impact, setImpact] = useState<Impact>(resolveImpact(initial.orgType, initialGoal.impact));
+  // The cost is typed as text so half-finished input ("", "0.") doesn't get clamped while typing.
+  const [costText, setCostText] = useState(String(resolveImpact(initial.orgType, initialGoal.impact).unitCents / 100));
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const changeType = (next: OrgType) => {
     setOrgType(next);
-    if (!custom) setImpact(defaultImpact(next));
+    if (!custom) {
+      setImpact(defaultImpact(next));
+      setCostText(String(defaultImpact(next).unitCents / 100));
+    }
   };
   const editImpact = (patch: Partial<Impact>) => {
     setCustom(true);
@@ -36,14 +41,16 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
   const resetImpact = () => {
     setCustom(false);
     setImpact(defaultImpact(orgType));
+    setCostText(String(defaultImpact(orgType).unitCents / 100));
   };
 
   const goalCents = Math.round(Number(goalDollars) * 100);
   const validGoal = Number.isFinite(goalCents) && goalCents >= 100;
+  const validCost = Number.isFinite(Number(costText)) && Number(costText) >= 0.01;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!validGoal) return;
+    if (!validGoal || !validCost) return;
     setState('saving');
     const headers = { 'content-type': 'application/json' };
     const [orgRes, goalRes] = await Promise.all([
@@ -132,8 +139,12 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
                 <label className={styles.label} htmlFor="cost">Cost of one {impact.unit.replace(/s$/, '') || 'unit'}</label>
                 <input
                   id="cost" style={input} type="number" min={0.01} step="0.01"
-                  value={impact.unitCents / 100}
-                  onChange={(e) => editImpact({ unitCents: Math.max(1, Math.round(Number(e.target.value) * 100)) })}
+                  value={costText}
+                  onChange={(e) => {
+                    setCostText(e.target.value);
+                    const n = Number(e.target.value);
+                    if (Number.isFinite(n) && n >= 0.01) editImpact({ unitCents: Math.round(n * 100) });
+                  }}
                   required
                 />
                 <span className={styles.sub}>An estimate; the count is the amount raised divided by this.</span>
@@ -149,7 +160,7 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
           </section>
 
           <div className={styles.actions} style={{ alignItems: 'center' }}>
-            <button className={`${styles.btn} ${styles.p}`} disabled={state === 'saving' || !validGoal}>Save</button>
+            <button className={`${styles.btn} ${styles.p}`} disabled={state === 'saving' || !validGoal || !validCost}>Save</button>
             {state === 'saved' && <span className={`${styles.sub} ${styles.good}`}>Saved. <Link href="/dashboard" style={{ color: 'inherit' }}>Open the live display</Link></span>}
             {state === 'error' && <span className={styles.sub} style={{ color: 'var(--red)' }}>Could not save.</span>}
           </div>

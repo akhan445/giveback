@@ -59,7 +59,7 @@ export function ActivityWidget({ widgetApi, dataMapping }: AgWidgetParams) {
   const amount = m.amount?.[0];
   const date = m.date?.[0];
   const anonymous = m.anonymous?.[0];
-  const rows = useWidgetRows(widgetApi, [id, donor, amount, date, anonymous]);
+  const rows = useWidgetRows(widgetApi, [id, donor, amount, date, anonymous], { sortDesc: date, limit: 14 });
   if (!id || !donor || !amount || !date || !anonymous) return <Missing what="a payment id, supporter, amount, date and anonymous flag" />;
   const feed = recentActivity(
     (rows ?? []).map((r) => ({
@@ -69,7 +69,7 @@ export function ActivityWidget({ widgetApi, dataMapping }: AgWidgetParams) {
       date: String(r[keyOf(date)] ?? ''),
       anonymous: r[keyOf(anonymous)] === true || r[keyOf(anonymous)] === 'true',
     })).filter((g) => g.id && g.date && Number.isFinite(g.amount)),
-    8,
+    14,
   );
   return <Themed><ActivityFeed rows={feed} /></Themed>;
 }

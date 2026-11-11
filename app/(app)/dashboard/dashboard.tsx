@@ -114,6 +114,15 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
   const [initialState] = useState(() => reportState.withFiltersPanelFor('view', saved.state));
   const state = studioState ?? initialState;
   const studioData = useMemo(() => buildStudioData(data), [data]);
+  // New data arrived: tell Studio to re-run its queries so widgets (including our custom ones) refresh.
+  const firstData = useRef(true);
+  useEffect(() => {
+    if (firstData.current) {
+      firstData.current = false;
+      return;
+    }
+    apiRef.current?.reload();
+  }, [studioData]);
   // `ai` is read once, when Studio is created.
   const ai = useMemo(() => (aiModels?.length ? buildAi(aiModels) : undefined), [aiModels]);
 
@@ -150,11 +159,14 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
   // Studio shows its AI assistant only in edit mode, so "Ask agent" opens edit mode with the
   // assistant expanded and the other panels out of the way.
   const openAgent = () => {
-    updateState((s) => ({
-      ...s,
-      panels: { ...s.panels, filters: { ...s.panels?.filters, collapsed: true }, edit: { ...s.panels?.edit, collapsed: true }, data: { ...s.panels?.data, collapsed: true }, ai: { ...s.panels?.ai, collapsed: false } },
-    }));
     setMode('edit');
+    // Panel sizes are set once Studio has switched modes (it resets them on the switch).
+    setTimeout(() => {
+      updateState((s) => ({
+        ...s,
+        panels: { ...s.panels, filters: { ...s.panels?.filters, collapsed: true }, edit: { ...s.panels?.edit, collapsed: true }, data: { ...s.panels?.data, collapsed: true }, ai: { ...s.panels?.ai, collapsed: false } },
+      }));
+    }, 400);
   };
 
   // --- Saving -----------------------------------------------------------------------

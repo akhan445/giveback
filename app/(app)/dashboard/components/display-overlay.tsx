@@ -14,7 +14,7 @@ import {
 
 export function DisplayOverlay({ data, onClose }: { data: StudioData; onClose: () => void }) {
   const goal = data.campaign[0];
-  const feed = useMemo(() => recentActivity(data.gifts, 8), [data.gifts]);
+  const feed = useMemo(() => recentActivity(data.gifts, 14), [data.gifts]);
   const impact = useMemo(() => parseImpact(goal?.impact), [goal?.impact]);
 
   useEffect(() => {
