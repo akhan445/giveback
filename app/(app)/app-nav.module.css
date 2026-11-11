@@ -1,4 +1,5 @@
 .shell { --bg:#f5f6f1; --surf:#fcfcf9; --ink:#25301f; --mute:#7a8472; --line:#dfe3d3; --a:#4f6b3a; --ai:#fbfcf7;
+  --pp-font: var(--gb-ui), system-ui, sans-serif;
   height:100dvh; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font-family:var(--gb-ui),system-ui,sans-serif; }
 .nav { flex:0 0 64px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 32px; background:var(--bg); border-bottom:1px solid var(--line); }
 .org { display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; }
