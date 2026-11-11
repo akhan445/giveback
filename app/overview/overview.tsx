@@ -59,7 +59,7 @@ export function Overview({ data }: { data: OverviewData }) {
   const askAbout = (text: string) => { setChatOpen(true); void chat.send(text); };
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${chatOpen ? styles.withChat : ''}`}>
       <div className={styles.wrap}>
         <header className={styles.top}>
           <div className={styles.org}><div className={styles.logo}>{data.org.name[0]}</div>{data.org.name}</div>
@@ -175,11 +175,9 @@ export function Overview({ data }: { data: OverviewData }) {
       </div>
 
       {chatOpen && (
-        <div className={styles.overlay} onClick={() => setChatOpen(false)}>
-          <aside className={styles.drawer} onClick={(e) => e.stopPropagation()}>
-            <Chat chat={chat} side onExpand={() => setChatOpen(false)} />
-          </aside>
-        </div>
+        <aside className={styles.drawer}>
+          <Chat chat={chat} side onExpand={() => setChatOpen(false)} />
+        </aside>
       )}
     </div>
   );
