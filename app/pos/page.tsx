@@ -5,6 +5,7 @@ import { CATALOG, MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
 import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '@/lib/currency';
 import { feeCoverCents } from '@/lib/fees';
 import { centsToDecimal } from '@/lib/money';
+import Link from 'next/link';
 import { CurrencyPicker } from './currency-picker';
 import styles from './pos.module.css';
 
@@ -238,6 +239,12 @@ export default function PosPage() {
               <span className={styles.logo}>{ORG_NAME[0]}</span>
               {ORG_NAME}
             </div>
+            <nav className={styles.tabs} aria-label="Main">
+              <Link href="/pos" className={styles.on}>Counter</Link>
+              <Link href="/overview">Dashboard</Link>
+              <Link href="/dashboard">Reports</Link>
+              <Link href="/settings">Settings</Link>
+            </nav>
             <CurrencyPicker value={currency} onChange={changeCurrency} />
           </div>
 
