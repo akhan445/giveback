@@ -253,7 +253,7 @@ async function post<T>(path: string, body: unknown, requestId?: string): Promise
 export type CaptureResult = {
   id: string; // order id
   status: string;
-  payer?: { email_address?: string; name?: { given_name?: string; surname?: string } };
+  payer?: { email_address?: string; name?: { given_name?: string; surname?: string }; address?: { country_code?: string } };
   purchase_units?: {
     description?: string;
     custom_id?: string;

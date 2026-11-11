@@ -23,6 +23,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     feeCoveredCents: tag.feeCoverCents,
     anonymous: tag.anonymous,
     payerName: name || null,
+    payerCountry: result.payer?.address?.country_code ?? null,
     feeCents: decimalToCents(capture.seller_receivable_breakdown?.paypal_fee?.value ?? '0'),
     status: capture.status,
     kind: unit?.description?.startsWith('Donation') ? 'donation' : 'sale',

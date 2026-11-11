@@ -17,6 +17,8 @@ export type PaymentInput = {
   description?: string | null;
   payerEmail?: string | null;
   payerName?: string | null;
+  payerCountry?: string | null; // ISO 3166 alpha-2, from PayPal
+  payerCity?: string | null;
   anonymous?: boolean; // the supporter asked not to be named publicly
   source: 'capture' | 'webhook' | 'seed';
 };
@@ -25,8 +27,8 @@ type Queryable = Pick<PoolClient, 'query'>;
 
 export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
   await q.query(
-    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source, payer_name, anonymous)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source, payer_name, anonymous, payer_country, payer_city)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      ON CONFLICT (paypal_capture_id) DO UPDATE SET
        status        = EXCLUDED.status,
        fee_cents     = GREATEST(payments.fee_cents, EXCLUDED.fee_cents),
@@ -35,8 +37,10 @@ export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
        description   = COALESCE(payments.description, EXCLUDED.description),
        payer_email   = COALESCE(payments.payer_email, EXCLUDED.payer_email),
        payer_name    = COALESCE(payments.payer_name, EXCLUDED.payer_name),
+       payer_country = COALESCE(payments.payer_country, EXCLUDED.payer_country),
+       payer_city    = COALESCE(payments.payer_city, EXCLUDED.payer_city),
        anonymous     = payments.anonymous OR EXCLUDED.anonymous`,
-    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source, p.payerName ?? null, p.anonymous ?? false],
+    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source, p.payerName ?? null, p.anonymous ?? false, p.payerCountry ?? null, p.payerCity ?? null],
   );
 }
 

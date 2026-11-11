@@ -18,13 +18,14 @@ export type SavedReport = {
 
 export type StoredReports = { reports: SavedReport[]; activeId: string };
 
-const STORAGE_KEY = 'giveback:reports:v2';
+const STORAGE_KEY = 'giveback:reports:v3';
 
 export const BUILT_IN_ID = 'giveback-reports';
 
 // Sidebar titles for the built-in report's pages, keyed by page id in initial-report.ts.
 const defaultPageTitles: Record<string, string> = {
   money: 'Money in',
+  reach: 'Global reach',
   cashback: 'Fees & cashback',
   supporters: 'Supporters',
 };

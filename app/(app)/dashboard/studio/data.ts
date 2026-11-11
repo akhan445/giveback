@@ -20,6 +20,18 @@ type FieldSpec = [id: string, name: string, format: AgFormat, hide?: boolean];
 const fields = (specs: FieldSpec[]): AgFieldDefinition[] =>
   specs.map(([id, name, format, hide]) => ({ id, name, format, ...(hide && { hide }) }));
 
+// Foreign key 'table.field' -> primary key 'table.field'.
+const manyToOne = (id: string, source: string, target: string): AgRelationDefinition => {
+  const [sourceTable, sourceField] = source.split('.');
+  const [targetTable, targetField] = target.split('.');
+  return {
+    id,
+    source: { tableId: sourceTable, fieldId: sourceField },
+    target: { tableId: targetTable, fieldId: targetField },
+    type: 'many-to-one',
+  };
+};
+
 const onCalendar = (tableId: string, fieldId: string, truncate?: 'day'): AgRelationDefinition => ({
   id: `${tableId}-${fieldId}-calendar`,
   source: { tableId, fieldId },
@@ -64,13 +76,32 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['month', 'Month', 'dateFormat', true],
           ['kind', 'Type', 'textFormat'],
           ['donor', 'Supporter', 'textFormat'],
-          ['anonymous', 'Anonymous', 'booleanFormat'],
+          ['anonymous', 'Anonymous', 'booleanFormat', true],
+          ['visibility', 'Named or anonymous', 'textFormat'],
+          ['anonymousGifts', 'Anonymous gifts', 'integerFormat'],
+          ['supporterType', 'First gift or repeat', 'textFormat'],
+          ['country', 'Country', 'textFormat'],
+          ['region', 'Region', 'textFormat'],
+          ['city', 'City', 'textFormat'],
           ['description', 'What they bought', 'textFormat'],
           ['currency', 'Paid in', 'textFormat', true],
           ['amount', 'Amount', 'currencyFormat'],
           ['fee', 'PayPal fee', 'currencyFormat'],
           ['feeCovered', 'Fee covered by supporter', 'currencyFormat'],
           ['net', 'Net', 'currencyFormat'],
+        ]),
+      },
+      {
+        id: 'items',
+        name: 'Counter items',
+        description: 'One row per item line on a counter sale: the item, how many, and what they came to (list price, in the org currency).',
+        data: data.items,
+        fields: fields([
+          ['id', 'Line ID', 'textFormat', true],
+          ['giftId', 'Payment ID', 'textFormat', true],
+          ['item', 'Item', 'textFormat'],
+          ['quantity', 'Quantity', 'integerFormat'],
+          ['amount', 'Item revenue', 'currencyFormat'],
         ]),
       },
       {
@@ -89,7 +120,7 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
         ]),
       },
     ],
-    relationships: [onCalendar('gifts', 'date', 'day'), onCalendar('months', 'month')],
+    relationships: [manyToOne('item-gift', 'items.giftId', 'gifts.id'), onCalendar('gifts', 'date', 'day'), onCalendar('months', 'month')],
     calendars: [
       {
         id: CALENDAR_ID,

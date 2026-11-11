@@ -69,6 +69,16 @@ const money: AgPageState = {
         style: { custom: { pieDataLabel: { enabled: true }, totalLabel: { enabled: true } } },
       },
     },
+    'top-items': {
+      type: 'bar-chart-grouped',
+      dataMapping: { categoryKey: [{ id: 'items.item' }], valueKey: [sum('items.amount')] },
+      format: title('What sold at the counter (list price)'),
+    },
+    'by-weekday': {
+      type: 'column-chart-grouped',
+      dataMapping: { categoryKey: [{ id: 'calendar::dayOfWeek' }], valueKey: [sum('gifts.amount')] },
+      format: title('Raised by day of the week'),
+    },
     'recent-payments': {
       type: 'grid',
       dataMapping: {
@@ -93,7 +103,72 @@ const money: AgPageState = {
     'kpi-net': at(18, 0, 6, 7),
     'raised-by-month': at(0, 7, 16, 16),
     'by-type': at(16, 7, 8, 16),
-    'recent-payments': at(0, 23, 24, 22),
+    'top-items': at(0, 23, 12, 14),
+    'by-weekday': at(12, 23, 12, 14),
+    'recent-payments': at(0, 37, 24, 22),
+  },
+};
+
+const reach: AgPageState = {
+  id: 'reach',
+  widgets: {
+    'kpi-countries': kpi('Countries', countd('gifts.country')),
+    'kpi-cities': kpi('Cities', countd('gifts.city')),
+    'kpi-anon': kpi('Anonymous gifts', sum('gifts.anonymousGifts')),
+    'kpi-repeat': kpi('Payments', countd('gifts.id')),
+    'by-country': {
+      type: 'bar-chart-grouped',
+      dataMapping: { categoryKey: [{ id: 'gifts.country' }], valueKey: [sum('gifts.amount')] },
+      sort: [{ field: sum('gifts.amount'), direction: 'desc' }],
+      format: title('Raised by country'),
+    },
+    'by-region': {
+      type: 'sunburst-chart',
+      dataMapping: { categoryKey: [{ id: 'gifts.region' }, { id: 'gifts.country' }], valueKey: [sum('gifts.amount')] },
+      format: title('Region and country'),
+    },
+    visibility: {
+      type: 'donut-chart',
+      dataMapping: { categoryKey: [{ id: 'gifts.visibility' }], valueKey: [sum('gifts.amount')] },
+      format: {
+        ...title('Named vs anonymous giving'),
+        style: { custom: { pieDataLabel: { enabled: true }, totalLabel: { enabled: true } } },
+      },
+    },
+    returning: {
+      type: 'donut-chart',
+      dataMapping: { categoryKey: [{ id: 'gifts.supporterType' }], valueKey: [sum('gifts.amount')] },
+      format: {
+        ...title('First gifts vs repeat supporters'),
+        style: { custom: { pieDataLabel: { enabled: true }, totalLabel: { enabled: true } } },
+      },
+    },
+    'country-table': {
+      type: 'grid',
+      dataMapping: {
+        cols: [
+          { id: 'gifts.country' },
+          { id: 'gifts.region' },
+          countd('gifts.id'),
+          sum('gifts.amount'),
+          avg('gifts.amount'),
+          sum('gifts.anonymousGifts'),
+        ],
+      },
+      sort: [{ field: sum('gifts.amount'), direction: 'desc' }],
+      format: title('Giving by country'),
+    },
+  },
+  widgetLayout: {
+    'kpi-countries': at(0, 0, 6, 7),
+    'kpi-cities': at(6, 0, 6, 7),
+    'kpi-anon': at(12, 0, 6, 7),
+    'kpi-repeat': at(18, 0, 6, 7),
+    'by-country': at(0, 7, 14, 18),
+    'by-region': at(14, 7, 10, 18),
+    visibility: at(0, 25, 8, 16),
+    returning: at(8, 25, 8, 16),
+    'country-table': at(16, 25, 8, 16),
   },
 };
 
@@ -157,25 +232,19 @@ const supporters: AgPageState = {
   widgets: {
     'kpi-named': kpi('Named supporters', countd('gifts.donor')),
     'kpi-top': kpi('Largest payment', { id: 'gifts.amount', aggregation: 'max' as 'sum' }),
-    'top-supporters': {
-      type: 'bar-chart-grouped',
-      dataMapping: { categoryKey: [{ id: 'gifts.donor' }], valueKey: [sum('gifts.amount')] },
-      format: title('Top supporters (anonymous gifts excluded)'),
-    },
     'supporter-table': {
       type: 'grid',
       dataMapping: {
-        cols: [{ id: 'gifts.donor' }, countd('gifts.id'), sum('gifts.amount'), avg('gifts.amount'), sum('gifts.feeCovered')],
+        cols: [{ id: 'gifts.donor' }, { id: 'gifts.country' }, countd('gifts.id'), sum('gifts.amount'), avg('gifts.amount'), sum('gifts.feeCovered')],
       },
       sort: [{ field: sum('gifts.amount'), direction: 'desc' }],
-      format: title('Supporters'),
+      format: title('Named supporters, biggest first (anonymous gifts excluded)'),
     },
   },
   widgetLayout: {
-    'kpi-named': at(0, 0, 8, 7),
-    'kpi-top': at(8, 0, 8, 7),
-    'top-supporters': at(0, 7, 12, 20),
-    'supporter-table': at(12, 7, 12, 20),
+    'kpi-named': at(0, 0, 12, 7),
+    'kpi-top': at(12, 0, 12, 7),
+    'supporter-table': at(0, 7, 24, 30),
   },
   filter: {
     page: [{ field: { id: 'gifts.anonymous' }, model: { operator: 'isFalse' } }],
@@ -185,5 +254,5 @@ const supporters: AgPageState = {
 // The report opens on its first page.
 export const dashboardReport: AgReportState = {
   selectedPageId: money.id,
-  pages: [money, cashback, supporters],
+  pages: [money, reach, cashback, supporters],
 };
