@@ -26,10 +26,6 @@ export function SettingsForm({ initial }: { initial: OrgProfile }) {
   return (
     <div className={styles.root}>
       <div className={styles.wrap} style={{ maxWidth: 640 }}>
-        <header className={styles.top}>
-          <div className={styles.org}>Settings</div>
-          <nav className={styles.tabs}><Link href="/pos">Counter</Link><Link href="/overview">Dashboard</Link><Link href="/dashboard">Reports</Link><Link href="/settings" className={styles.on}>Settings</Link></nav>
-        </header>
         <form className={styles.card} onSubmit={save}>
           <div style={field}><label className={styles.label} htmlFor="name">Organization name</label><input id="name" style={input} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required /></div>
           <div style={field}>
