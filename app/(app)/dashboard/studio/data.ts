@@ -80,6 +80,8 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['visibility', 'Named or anonymous', 'textFormat'],
           ['anonymousGifts', 'Anonymous gifts', 'integerFormat'],
           ['supporterType', 'First gift or repeat', 'textFormat'],
+          ['monthlyGiver', 'Monthly giver', 'booleanFormat', true],
+          ['givingPattern', 'Giving pattern', 'textFormat'],
           ['country', 'Country', 'textFormat'],
           ['region', 'Region', 'textFormat'],
           ['city', 'City', 'textFormat'],
@@ -108,7 +110,7 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
       },
       {
         id: 'months',
-        description: 'One row per month: payment count, volume, fees, cashback earned, cashback tier and rate, and the effective fee rate after cashback.',
+        description: 'One row per month: payment count, volume, fees, cashback earned, cashback tier and rate, the effective fee rate after cashback, and how much monthly givers (named supporters seen in 3+ months) gave.',
         data: data.months,
         fields: fields([
           ['month', 'Month', 'dateFormat'],
@@ -119,6 +121,8 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['tier', 'Cashback tier', 'textFormat'],
           ['rate', 'Cashback rate', 'percentageFormat'],
           ['effectiveFeeRate', 'Effective fee rate', 'percentageFormat'],
+          ['monthlyGiverVolume', 'Monthly givers volume', 'currencyFormat'],
+          ['monthlyGiverShare', 'Monthly givers share of volume', 'percentageFormat'],
         ]),
       },
     ],

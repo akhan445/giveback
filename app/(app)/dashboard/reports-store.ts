@@ -28,6 +28,7 @@ const defaultPageTitles: Record<string, string> = {
   reach: 'Global reach',
   cashback: 'Fees & cashback',
   supporters: 'Supporters',
+  recurring: 'Recurring Supporters',
 };
 
 export const defaultReport = (): SavedReport => ({

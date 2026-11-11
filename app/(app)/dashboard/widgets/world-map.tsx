@@ -1,22 +1,31 @@
 'use client';
 
-// Custom AG Studio widget: a world map with one dot per place. The dot's size shows how much came
-// from there. The widget is mapped to four fields (place, latitude, longitude, value), so it works
-// on any table that has them, and it follows Studio's filters like the built-in widgets do.
+// Custom AG Studio widget: a plain world map where every country that gifts came from is
+// highlighted (darker = more raised). Mapped to two fields (country, value), so it works on any
+// table that has them, and it follows Studio's filters like the built-in widgets do.
 import { useEffect, useMemo, useState } from 'react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
-import land110 from 'world-atlas/land-110m.json';
+import countries110 from 'world-atlas/countries-110m.json';
 import type { AgWidgetField, AgWidgetParams } from 'ag-studio';
 
 const W = 800;
 const H = 420;
-const projection = geoNaturalEarth1().fitSize([W, H], feature(land110 as never, (land110 as never as { objects: { land: never } }).objects.land));
-const landPath = geoPath(projection)(feature(land110 as never, (land110 as never as { objects: { land: never } }).objects.land)) ?? '';
+type Country = { type: 'Feature'; properties: { name: string }; geometry: never };
+const collection = feature(countries110 as never, (countries110 as never as { objects: { countries: never } }).objects.countries) as unknown as {
+  type: 'FeatureCollection';
+  features: Country[];
+};
+const projection = geoNaturalEarth1().fitSize([W, H], collection as never);
+const path = geoPath(projection);
+const shapes = collection.features
+  .filter((f) => f.properties.name !== 'Antarctica')
+  .map((f) => ({ name: f.properties.name, d: path(f as never) ?? '' }));
 
-type Dot = { place: string; lat: number; lon: number; value: number };
+// Our country names that differ from the map file's names.
+const ALIASES: Record<string, string> = { 'United States': 'United States of America' };
 
-// Studio keys result rows by the field's key ('gifts.city', 'gifts.amount.sum').
+// Studio keys result rows by the field's key ('gifts.country', 'gifts.amount.sum').
 const keyOf = (f: AgWidgetField) => {
   const x = f as unknown as { key?: unknown; fieldId?: unknown };
   return String(x.key ?? x.fieldId);
@@ -24,18 +33,16 @@ const keyOf = (f: AgWidgetField) => {
 
 export function WorldMapWidget({ widgetApi, dataMapping }: AgWidgetParams) {
   const map = dataMapping as Record<string, AgWidgetField[] | undefined>;
-  const place = map.place?.[0];
-  const lat = map.latitude?.[0];
-  const lon = map.longitude?.[0];
+  const country = map.country?.[0];
   const value = map.value?.[0];
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
   // Studio hands over fresh field objects on every render, so key the request on their content.
-  const fieldsKey = JSON.stringify([place, lat, lon, value]);
+  const fieldsKey = JSON.stringify([country, value]);
 
   useEffect(() => {
-    if (!place || !lat || !lon || !value) return;
+    if (!country || !value) return;
     let cancelled = false;
-    widgetApi.getData({ fields: [place, lat, lon, value] }).then((res) => {
+    widgetApi.getData({ fields: [country, value] }).then((res) => {
       if (!cancelled) setRows(res.results.rows);
     });
     return () => {
@@ -44,30 +51,35 @@ export function WorldMapWidget({ widgetApi, dataMapping }: AgWidgetParams) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widgetApi, fieldsKey]);
 
-  const dots: Dot[] = useMemo(() => {
-    if (!place || !lat || !lon || !value || !rows) return [];
-    return rows
-      .map((r) => ({ place: String(r[keyOf(place)] ?? ''), lat: Number(r[keyOf(lat)]), lon: Number(r[keyOf(lon)]), value: Number(r[keyOf(value)]) }))
-      .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lon) && d.value > 0);
+  const totals = useMemo(() => {
+    const out = new Map<string, number>();
+    if (!country || !value || !rows) return out;
+    for (const r of rows) {
+      const raw = String(r[keyOf(country)] ?? '');
+      const v = Number(r[keyOf(value)]);
+      if (raw && Number.isFinite(v) && v > 0) out.set(ALIASES[raw] ?? raw, (out.get(ALIASES[raw] ?? raw) ?? 0) + v);
+    }
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, fieldsKey]);
-  if (!place || !lat || !lon || !value) return <p style={{ padding: 16 }}>Map a place, latitude, longitude and value.</p>;
-  const max = Math.max(1, ...dots.map((d) => d.value));
+  if (!country || !value) return <p style={{ padding: 16 }}>Map a country and a value.</p>;
+  const max = Math.max(1, ...totals.values());
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }} role="img" aria-label="Map of where gifts come from">
-      <path d={landPath} fill="var(--pp-gridline)" stroke="var(--pp-border)" strokeWidth={0.5} />
-      {dots.map((d) => {
-        const p = projection([d.lon, d.lat]);
-        if (!p) return null;
-        const r = 6 + 20 * Math.sqrt(d.value / max);
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }} role="img" aria-label="Map of the countries gifts come from">
+      {shapes.map((s) => {
+        const v = totals.get(s.name);
         return (
-          <g key={`${d.place}-${d.lat}-${d.lon}`}>
-            <circle cx={p[0]} cy={p[1]} r={r} fill="var(--pp-blue)" opacity={0.3} />
-            <circle cx={p[0]} cy={p[1]} r={4} fill="var(--pp-blue)">
-              <title>{`${d.place}: ${Math.round(d.value).toLocaleString()}`}</title>
-            </circle>
-          </g>
+          <path
+            key={s.name}
+            d={s.d}
+            fill={v ? 'var(--pp-blue)' : 'var(--pp-gridline)'}
+            fillOpacity={v ? 0.35 + 0.65 * Math.sqrt(v / max) : 1}
+            stroke="var(--pp-border)"
+            strokeWidth={0.5}
+          >
+            {v ? <title>{`${s.name}: ${Math.round(v).toLocaleString()}`}</title> : <title>{s.name}</title>}
+          </path>
         );
       })}
     </svg>

@@ -19,6 +19,8 @@ export type GiftRow = {
   visibility: 'Named' | 'Anonymous';
   anonymousGifts: 0 | 1; // so a sum is a count of anonymous gifts
   supporterType: 'First gift' | 'Repeat' | 'Anonymous';
+  monthlyGiver: boolean; // named supporter who gave in at least MONTHLY_GIVER_MONTHS different months
+  givingPattern: 'Monthly giver' | 'Other named' | 'Anonymous';
   country: string;
   region: string;
   city: string;
@@ -41,11 +43,17 @@ export type MonthRow = {
   tier: string;
   rate: number; // fraction, e.g. 0.0055
   effectiveFeeRate: number;
+  monthlyGiverVolume: number; // what monthly givers gave this month
+  monthlyGiverShare: number; // fraction of the month's volume
 };
 
 export type ItemRow = { id: string; giftId: string; item: string; quantity: number; amount: number };
 
 export type StudioData = { asOf: string; org: string; gifts: GiftRow[]; months: MonthRow[]; items: ItemRow[] };
+
+// Reports-only view of recurring giving: we infer "monthly givers" from payment history rather than
+// from PayPal Subscriptions (real recurring billing is a stretch goal).
+const MONTHLY_GIVER_MONTHS = 3;
 
 const dollars = (cents: number) => Math.round(cents) / 100;
 
@@ -80,6 +88,8 @@ export async function getStudioData(): Promise<StudioData> {
       visibility: r.anonymous ? 'Anonymous' : 'Named',
       anonymousGifts: r.anonymous ? 1 : 0,
       supporterType: 'Anonymous',
+      monthlyGiver: false,
+      givingPattern: 'Anonymous',
       country: countryName(r.payer_country),
       region: countryRegion(r.payer_country),
       city: r.payer_city ?? 'Unknown',
@@ -101,6 +111,20 @@ export async function getStudioData(): Promise<StudioData> {
     g.supporterType = seen.has(g.donor) ? 'Repeat' : 'First gift';
     seen.add(g.donor);
   }
+
+  // Monthly givers: named supporters seen in several different months.
+  const monthsSeen = new Map<string, Set<string>>();
+  for (const g of gifts) {
+    if (g.anonymous || g.donor === 'Supporter') continue;
+    monthsSeen.set(g.donor, (monthsSeen.get(g.donor) ?? new Set()).add(g.month));
+  }
+  for (const g of gifts) {
+    if (g.anonymous) continue;
+    g.monthlyGiver = (monthsSeen.get(g.donor)?.size ?? 0) >= MONTHLY_GIVER_MONTHS;
+    g.givingPattern = g.monthlyGiver ? 'Monthly giver' : 'Other named';
+  }
+  const recurring = new Map<string, number>();
+  for (const g of gifts) if (g.monthlyGiver) recurring.set(g.month, (recurring.get(g.month) ?? 0) + g.amount);
 
   // Counter sales list their items ("2x Cookie box, 1x Coffee"); donations have none.
   const price = new Map<string, number>(CATALOG.map((c) => [c.name, c.priceCents]));
@@ -124,6 +148,8 @@ export async function getStudioData(): Promise<StudioData> {
       return {
         month, gifts: m.n, volume: dollars(m.volume), fees: dollars(m.fees), cashback: dollars(c.cashbackCents),
         tier: c.tier.name, rate: c.rateBp / 10_000, effectiveFeeRate: Math.round(effective * 10_000) / 10_000,
+        monthlyGiverVolume: Math.round(recurring.get(month) ?? 0),
+        monthlyGiverShare: m.volume > 0 ? Math.round(((recurring.get(month) ?? 0) * 100 * 10_000) / m.volume) / 10_000 : 0,
       };
     });
 

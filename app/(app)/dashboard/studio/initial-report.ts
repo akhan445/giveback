@@ -125,12 +125,10 @@ const reach: AgPageState = {
     'gift-map': {
       type: 'worldMap' as 'value',
       dataMapping: {
-        place: [{ id: 'gifts.city' }],
-        latitude: [{ id: 'gifts.latitude', aggregation: 'avg' }],
-        longitude: [{ id: 'gifts.longitude', aggregation: 'avg' }],
+        country: [{ id: 'gifts.country' }],
         value: [sum('gifts.amount')],
       } as never,
-      format: title('Where gifts come from (a dot for every city)'),
+      format: title('Where gifts come from (countries highlighted)'),
     },
     visibility: {
       type: 'donut-chart',
@@ -278,8 +276,40 @@ const supporters: AgPageState = {
   },
 };
 
+const recurring: AgPageState = {
+  id: 'recurring',
+  widgets: {
+    'kpi-givers': kpi('Monthly givers', countd('gifts.donor')),
+    'kpi-given': kpi('Given by monthly givers', sum('gifts.amount')),
+    'kpi-share': kpi('Share of all volume', { id: 'months.monthlyGiverShare', aggregation: 'avg' }),
+    'by-month': {
+      type: 'column-chart-grouped',
+      dataMapping: { categoryKey: [{ id: 'calendar::month' }], valueKey: [sum('gifts.amount')] },
+      format: title('What monthly givers gave, by month (predictable income for the forecast)'),
+    },
+    'giver-table': {
+      type: 'grid',
+      dataMapping: {
+        cols: [{ id: 'gifts.donor' }, { id: 'gifts.country' }, countd('gifts.id'), sum('gifts.amount'), avg('gifts.amount')],
+      },
+      sort: [{ field: sum('gifts.amount'), direction: 'desc' }],
+      format: title('Monthly givers, biggest first (named supporters who gave in 3 or more months)'),
+    },
+  },
+  widgetLayout: {
+    'kpi-givers': at(0, 0, 8, 7),
+    'kpi-given': at(8, 0, 8, 7),
+    'kpi-share': at(16, 0, 8, 7),
+    'by-month': at(0, 7, 24, 14),
+    'giver-table': at(0, 21, 24, 26),
+  },
+  filter: {
+    page: [{ field: { id: 'gifts.monthlyGiver' }, model: { operator: 'isTrue' } }],
+  },
+};
+
 // The report opens on its first page.
 export const dashboardReport: AgReportState = {
   selectedPageId: money.id,
-  pages: [money, reach, cashback, supporters],
+  pages: [money, reach, cashback, supporters, recurring],
 };
