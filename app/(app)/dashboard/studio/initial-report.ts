@@ -122,10 +122,15 @@ const reach: AgPageState = {
       sort: [{ field: sum('gifts.amount'), direction: 'desc' }],
       format: title('Raised by country'),
     },
-    'by-region': {
-      type: 'sunburst-chart',
-      dataMapping: { categoryKey: [{ id: 'gifts.region' }, { id: 'gifts.country' }], valueKey: [sum('gifts.amount')] },
-      format: title('Region and country'),
+    'gift-map': {
+      type: 'worldMap' as 'value',
+      dataMapping: {
+        place: [{ id: 'gifts.city' }],
+        latitude: [{ id: 'gifts.latitude', aggregation: 'avg' }],
+        longitude: [{ id: 'gifts.longitude', aggregation: 'avg' }],
+        value: [sum('gifts.amount')],
+      } as never,
+      format: title('Where gifts come from (a dot for every city)'),
     },
     visibility: {
       type: 'donut-chart',
@@ -140,6 +145,14 @@ const reach: AgPageState = {
       dataMapping: { categoryKey: [{ id: 'gifts.supporterType' }], valueKey: [sum('gifts.amount')] },
       format: {
         ...title('First gifts vs repeat supporters'),
+        style: { custom: { pieDataLabel: { enabled: true }, totalLabel: { enabled: true } } },
+      },
+    },
+    currency: {
+      type: 'donut-chart',
+      dataMapping: { categoryKey: [{ id: 'gifts.currency' }], valueKey: [countd('gifts.id')] },
+      format: {
+        ...title('Payments by currency paid in'),
         style: { custom: { pieDataLabel: { enabled: true }, totalLabel: { enabled: true } } },
       },
     },
@@ -164,11 +177,12 @@ const reach: AgPageState = {
     'kpi-cities': at(6, 0, 6, 7),
     'kpi-anon': at(12, 0, 6, 7),
     'kpi-repeat': at(18, 0, 6, 7),
-    'by-country': at(0, 7, 14, 18),
-    'by-region': at(14, 7, 10, 18),
+    'by-country': at(0, 7, 9, 18),
+    'gift-map': at(9, 7, 15, 18),
     visibility: at(0, 25, 8, 16),
     returning: at(8, 25, 8, 16),
-    'country-table': at(16, 25, 8, 16),
+    currency: at(16, 25, 8, 16),
+    'country-table': at(0, 41, 24, 16),
   },
 };
 
@@ -178,7 +192,7 @@ const cashback: AgPageState = {
     'kpi-cashback': kpi('Cashback earned', sum('months.cashback'), 'calendar::month'),
     'kpi-fees': kpi('PayPal fees', sum('months.fees'), 'calendar::month'),
     'kpi-volume': kpi('Volume', sum('months.volume'), 'calendar::month'),
-    'kpi-months': kpi('Months tracked', countd('months.month')),
+    'kpi-cover': kpi('Fees covered by supporters', { id: 'coverRate' } as never),
     'cashback-by-month': {
       type: 'combo-chart-grouped-column-line',
       dataMapping: {
@@ -220,7 +234,7 @@ const cashback: AgPageState = {
     'kpi-cashback': at(0, 0, 6, 7),
     'kpi-fees': at(6, 0, 6, 7),
     'kpi-volume': at(12, 0, 6, 7),
-    'kpi-months': at(18, 0, 6, 7),
+    'kpi-cover': at(18, 0, 6, 7),
     'cashback-by-month': at(0, 7, 16, 16),
     tiers: at(16, 7, 8, 16),
     'month-table': at(0, 23, 24, 22),
@@ -232,6 +246,18 @@ const supporters: AgPageState = {
   widgets: {
     'kpi-named': kpi('Named supporters', countd('gifts.donor')),
     'kpi-top': kpi('Largest payment', { id: 'gifts.amount', aggregation: 'max' as 'sum' }),
+    'new-vs-repeat': {
+      type: 'column-chart-stacked',
+      dataMapping: {
+        categoryKey: [{ id: 'calendar::month' }],
+        valueKey: [countd('gifts.id')],
+        legendKey: [{ id: 'gifts.supporterType' }],
+      },
+      format: {
+        ...title('New and returning named supporters, by month (payments)'),
+        style: { theme: { common: { legend: { enabled: true } } } },
+      },
+    },
     'supporter-table': {
       type: 'grid',
       dataMapping: {
@@ -244,7 +270,8 @@ const supporters: AgPageState = {
   widgetLayout: {
     'kpi-named': at(0, 0, 12, 7),
     'kpi-top': at(12, 0, 12, 7),
-    'supporter-table': at(0, 7, 24, 30),
+    'new-vs-repeat': at(0, 7, 24, 14),
+    'supporter-table': at(0, 21, 24, 26),
   },
   filter: {
     page: [{ field: { id: 'gifts.anonymous' }, model: { operator: 'isFalse' } }],

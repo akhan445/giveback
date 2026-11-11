@@ -6,6 +6,7 @@ import { db } from './db';
 import { computeCashback } from './cashback';
 import { CATALOG } from './catalog';
 import { countryName, countryRegion } from './countries';
+import { coordsFor } from './geo';
 import { toOrgCents } from './history';
 
 export type GiftRow = {
@@ -21,6 +22,8 @@ export type GiftRow = {
   country: string;
   region: string;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   description: string;
   currency: string;
   amount: number;
@@ -80,6 +83,8 @@ export async function getStudioData(): Promise<StudioData> {
       country: countryName(r.payer_country),
       region: countryRegion(r.payer_country),
       city: r.payer_city ?? 'Unknown',
+      latitude: coordsFor(r.payer_city, r.payer_country)?.[0] ?? null,
+      longitude: coordsFor(r.payer_city, r.payer_country)?.[1] ?? null,
       description: r.description ?? '',
       currency: r.currency,
       amount: dollars(amount),

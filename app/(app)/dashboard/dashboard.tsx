@@ -48,6 +48,7 @@ import * as reportState from './report-state';
 import { buildAi } from './studio/ai';
 import { buildStudioData, hasData } from './studio/data';
 import { agStudioPayPalTheme } from './studio/theme';
+import { giveWidgets } from './studio/widgets';
 import { useReports } from './use-reports';
 
 if (process.env.NODE_ENV !== 'production') {
@@ -263,6 +264,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
               theme={agStudioPayPalTheme}
               layout={{ widgetBorderEnabled: true }}
               data={studioData}
+              widgets={giveWidgets}
               ai={ai}
               initialState={initialState}
               mode={mode}
