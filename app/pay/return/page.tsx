@@ -1,7 +1,6 @@
 import { captureAndRecord, type Captured } from '@/lib/capture';
-import { CURRENCIES, type CurrencyCode } from '@/lib/currency';
 import { getOrgProfile } from '@/lib/history';
-import { centsToDecimal } from '@/lib/money';
+import { PaidCard } from '../paid-card';
 import styles from '../pay.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -37,24 +36,5 @@ export default async function PayReturn({ searchParams }: { searchParams: Promis
     );
   }
 
-  const symbol = CURRENCIES[paid.currency as CurrencyCode]?.symbol ?? '';
-  const completed = paid.status === 'COMPLETED';
-  return (
-    <main className={styles.root}>
-      <div className={styles.card}>
-        <span className={styles.org}>{org}</span>
-        {completed ? <div className={styles.stamp}>PAID</div> : null}
-        <div className={styles.amount}>
-          {symbol}{centsToDecimal(paid.amountCents)}
-          <span className={styles.cur}>{paid.currency}</span>
-        </div>
-        <div className={styles.thanks}>{paid.payerFirstName ? `Thank you, ${paid.payerFirstName}!` : 'Thank you!'}</div>
-        <p className={styles.note}>
-          {completed
-            ? 'Your receipt is in your PayPal account. You can close this page.'
-            : 'PayPal is still processing this payment. You will get a receipt from PayPal when it completes.'}
-        </p>
-      </div>
-    </main>
-  );
+  return <PaidCard org={org} amountCents={paid.amountCents} currency={paid.currency} firstName={paid.payerFirstName} pending={paid.status !== 'COMPLETED'} />;
 }
