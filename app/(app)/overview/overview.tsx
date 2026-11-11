@@ -61,14 +61,6 @@ export function Overview({ data }: { data: OverviewData }) {
   return (
     <div className={`${styles.root} ${chatOpen ? styles.withChat : ''}`}>
       <div className={styles.wrap}>
-        <header className={styles.top}>
-          <div className={styles.org}><div className={styles.logo}>{data.org.name[0]}</div>{data.org.name}</div>
-          <nav className={styles.tabs}>
-            <Link href="/pos">Counter</Link><Link href="/overview" className={styles.on}>Dashboard</Link>
-            <Link href="/dashboard">Reports</Link><Link href="/settings">Settings</Link>
-          </nav>
-        </header>
-
         <section className={styles.kpis}>
           <div className={styles.card}><div className={styles.label}>Today</div><div className={styles.big}>{money(data.today.volumeCents)}</div><div className={styles.sub}>{data.today.count} payments</div></div>
           <div className={styles.card}><div className={styles.label}>Raised in {monthName}</div><div className={styles.big}>{money0(m.volumeCents)}</div>

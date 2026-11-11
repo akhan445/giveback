@@ -5,11 +5,9 @@ import { CATALOG, MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
 import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '@/lib/currency';
 import { feeCoverCents } from '@/lib/fees';
 import { centsToDecimal } from '@/lib/money';
-import Link from 'next/link';
 import { CurrencyPicker } from './currency-picker';
 import styles from './pos.module.css';
 
-const ORG_NAME = 'Riverside Food Bank'; // becomes a per-organization setting later
 const SDK_URL = 'https://www.sandbox.paypal.com/web-sdk/v6/core';
 
 // Minimal types for the parts of the v6 SDK we use.
@@ -94,6 +92,8 @@ function loadScript(src: string): Promise<void> {
 }
 
 export default function PosPage() {
+  const [orgName, setOrgName] = useState('');
+  useEffect(() => { fetch('/api/org').then((r) => r.json()).then((o) => setOrgName(o.name ?? '')).catch(() => {}); }, []);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [donationInput, setDonationInput] = useState('');
   const [donationCents, setDonationCents] = useState(0);
@@ -235,16 +235,6 @@ export default function PosPage() {
       <div className={styles.layout}>
         <main className={styles.main}>
           <div className={styles.top}>
-            <div className={styles.org}>
-              <span className={styles.logo}>{ORG_NAME[0]}</span>
-              {ORG_NAME}
-            </div>
-            <nav className={styles.tabs} aria-label="Main">
-              <Link href="/pos" className={styles.on}>Counter</Link>
-              <Link href="/overview">Dashboard</Link>
-              <Link href="/dashboard">Reports</Link>
-              <Link href="/settings">Settings</Link>
-            </nav>
             <CurrencyPicker value={currency} onChange={changeCurrency} />
           </div>
 
@@ -307,7 +297,7 @@ export default function PosPage() {
         <aside className={styles.cart}>
           <div className={styles.receipt}>
             <div className={styles.rcHead}>
-              <span className={styles.rcOrg}>{ORG_NAME}</span>
+              <span className={styles.rcOrg}>{orgName}</span>
               <span className={styles.rcSub}>
                 {saleNo ? `Sale no. ${saleNo}` : 'New sale'}
                 {stamp ? ` · ${stamp}` : ''}
