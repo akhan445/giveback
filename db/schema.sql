@@ -25,3 +25,13 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   payload      JSONB NOT NULL,
   received_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- One row: who this organization is. Drives which AI opportunities it sees.
+CREATE TABLE IF NOT EXISTS org_settings (
+  id         INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  name       TEXT NOT NULL DEFAULT 'Riverside Community Kitchen',
+  org_type   TEXT NOT NULL DEFAULT 'food_bank',
+  tradition  TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO org_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
