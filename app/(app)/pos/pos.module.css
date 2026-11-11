@@ -157,3 +157,12 @@
 .swipeHint { margin: 10px 0 0; text-align: center; font: 500 11.5px var(--gb-mono), monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); }
 
 .rcItems { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -6px; padding: 0 6px; }
+
+/* Pay by phone */
+.orDevice { text-align: center; color: var(--mute); font: 500 10px var(--gb-mono), monospace; letter-spacing: .14em; text-transform: uppercase; margin: -2px 0 -4px; }
+.qrCard { max-width: 380px; }
+.qr { width: 260px; height: 260px; max-width: 100%; border: 1px solid var(--line); border-radius: 4px; background: #fff; image-rendering: pixelated; }
+.waiting { display: flex; align-items: center; gap: 8px; font: 600 11px var(--gb-mono), monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--a); }
+.waiting i { width: 8px; height: 8px; border-radius: 50%; background: var(--a); animation: wait 1.2s ease-in-out infinite; }
+@keyframes wait { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .waiting i { animation: none; } }

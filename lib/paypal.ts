@@ -268,15 +268,50 @@ export type CaptureResult = {
   }[];
 };
 
-export function createOrder(totalDecimal: string, currency: string, description: string, customId: string, requestId: string) {
-  return post<{ id: string; status: string }>(
+export type OrderLink = { href: string; rel: string; method?: string };
+
+/** Where PayPal sends a supporter after they approve (or cancel) on their own phone. */
+export type PhoneCheckout = { returnUrl: string; cancelUrl: string; brandName?: string };
+
+export function createOrder(
+  totalDecimal: string,
+  currency: string,
+  description: string,
+  customId: string,
+  requestId: string,
+  phone?: PhoneCheckout,
+) {
+  return post<{ id: string; status: string; links?: OrderLink[] }>(
     '/v2/checkout/orders',
     {
       intent: 'CAPTURE',
       purchase_units: [{ description, custom_id: customId, amount: { currency_code: currency, value: totalDecimal } }],
+      // With a return URL PayPal gives us a link to open on the supporter's phone (shown as a QR code).
+      ...(phone && {
+        payment_source: {
+          paypal: {
+            experience_context: {
+              return_url: phone.returnUrl,
+              cancel_url: phone.cancelUrl,
+              user_action: 'PAY_NOW',
+              shipping_preference: 'NO_SHIPPING',
+              ...(phone.brandName && { brand_name: phone.brandName }),
+            },
+          },
+        },
+      }),
     },
     requestId,
   );
+}
+
+/** The link a supporter opens to approve the payment (PayPal calls it payer-action or approve). */
+export const approveLink = (links?: OrderLink[]) =>
+  links?.find((l) => l.rel === 'payer-action')?.href ?? links?.find((l) => l.rel === 'approve')?.href;
+
+/** The order's current state at PayPal: CREATED until the supporter approves, then APPROVED. */
+export function getOrder(orderId: string) {
+  return get<{ id: string; status: string }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
 }
 
 export function captureOrder(orderId: string) {

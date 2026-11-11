@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { CATALOG, MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
 import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '@/lib/currency';
 import { feeCoverCents } from '@/lib/fees';
@@ -79,16 +80,24 @@ function SwipeRow({ onDelete, children }: { onDelete: () => void; children: Reac
   );
 }
 
+// One load per page: React's dev double-run of effects must not add the script (and define its elements) twice.
+const scriptLoads = new Map<string, Promise<void>>();
 function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`) && window.paypal) return resolve();
+  const known = scriptLoads.get(src);
+  if (known) return known;
+  const load = new Promise<void>((resolve, reject) => {
     const s = document.createElement('script');
     s.src = src;
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('could not load the PayPal SDK'));
+    s.onerror = () => {
+      scriptLoads.delete(src);
+      reject(new Error('could not load the PayPal SDK'));
+    };
     document.head.appendChild(s);
   });
+  scriptLoads.set(src, load);
+  return load;
 }
 
 export default function PosPage() {
@@ -104,6 +113,9 @@ export default function PosPage() {
   const [stamp, setStamp] = useState<string>(); // receipt date/time, set on the client to avoid a server/client mismatch
   const [error, setError] = useState<string>();
   const [paid, setPaid] = useState<{ cents: number; currency: CurrencyCode; name: string | null }>();
+  // A payment the supporter is making on their own phone: the QR code for it, and which order to watch.
+  const [phone, setPhone] = useState<{ orderId: string; qr: string; cents: number; currency: CurrencyCode }>();
+  const [phoneBusy, setPhoneBusy] = useState(false);
   const slot = useRef<HTMLDivElement>(null);
 
   const priceOf = (usdCents: number) => convertUsdCents(usdCents, currency);
@@ -215,6 +227,52 @@ export default function PosPage() {
       cancelled = true;
     };
   }, []);
+
+  // Pay by phone: create the order, show its PayPal link as a QR code, then watch for the payment.
+  const startPhone = async () => {
+    setError(undefined);
+    setPhoneBusy(true);
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...bodyRef.current, phone: true }),
+      });
+      const data = (await res.json()) as { id?: string; approveUrl?: string; totalCents?: number; currency?: CurrencyCode; error?: string };
+      if (!res.ok || !data.id || !data.approveUrl) throw new Error(data.error ?? 'Could not create the QR payment');
+      const qr = await QRCode.toDataURL(data.approveUrl, { width: 520, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#25301f', light: '#ffffff' } });
+      setPhone({ orderId: data.id, qr, cents: data.totalCents ?? totalRef.current.cents, currency: data.currency ?? totalRef.current.currency });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPhoneBusy(false);
+    }
+  };
+
+  // While the QR code is up, ask the server every two seconds whether that order has been paid.
+  // Gives up after ten minutes.
+  useEffect(() => {
+    if (!phone) return;
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      if (Date.now() - started > 10 * 60_000) {
+        setPhone(undefined);
+        setError('The QR code expired. Start again.');
+        return;
+      }
+      try {
+        const r = await fetch(`/api/orders/${phone.orderId}/status`, { cache: 'no-store' });
+        const d = (await r.json()) as { paid: boolean; amountCents?: number; currency?: CurrencyCode; payerFirstName?: string | null; anonymous?: boolean };
+        if (d.paid) {
+          setPhone(undefined);
+          setPaid({ cents: d.amountCents ?? phone.cents, currency: d.currency ?? phone.currency, name: d.anonymous ? null : (d.payerFirstName ?? null) });
+        }
+      } catch {
+        // Keep waiting; the next poll tries again.
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [phone]);
 
   const bump = (id: string, d: number) =>
     setQty((q) => ({ ...q, [id]: Math.min(MAX_QTY, Math.max(0, (q[id] ?? 0) + d)) }));
@@ -384,6 +442,10 @@ export default function PosPage() {
           </div>
 
           {error && <p className={styles.err}>{error}</p>}
+          <button type="button" className={styles.btn} onClick={startPhone} disabled={totalCents === 0 || phoneBusy}>
+            {phoneBusy ? 'Creating code…' : 'Pay by phone · QR'}
+          </button>
+          <span className={styles.orDevice}>or pay on this device</span>
           <div
             ref={slot}
             className={styles.ppSlot}
@@ -394,6 +456,24 @@ export default function PosPage() {
           </button>
         </aside>
       </div>
+
+      {phone && (
+        <div className={styles.overlay} role="dialog" aria-label="Scan to pay">
+          <div className={`${styles.card} ${styles.qrCard}`}>
+            <span className={styles.label}>Scan with your phone camera</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.qr} src={phone.qr} alt="QR code to pay with PayPal" width={260} height={260} />
+            <div className={styles.mono} style={{ fontSize: 28, fontWeight: 600 }}>
+              {money(phone.cents, phone.currency)} <span className={styles.label}>{phone.currency}</span>
+            </div>
+            <div style={{ color: 'var(--mute)', fontSize: 14 }}>Opens PayPal on your phone. Approve the payment there.</div>
+            <div className={styles.waiting}><i /> Waiting for payment</div>
+            <button type="button" className={`${styles.btn} ${styles.ghost}`} onClick={() => setPhone(undefined)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {paid && (
         <div className={styles.overlay} role="dialog" aria-label="Payment confirmed">

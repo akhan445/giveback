@@ -98,3 +98,16 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
     client.release();
   }
 }
+
+export type PaidOrder = { amountCents: number; currency: string; payerFirstName: string | null; anonymous: boolean };
+
+/** The recorded payment for a PayPal order, or null while it is still unpaid. Used by the counter to watch a QR payment. */
+export async function findPaidOrder(orderId: string, q: Queryable = db()): Promise<PaidOrder | null> {
+  const { rows } = await q.query<{ amount_cents: number; currency: string; payer_name: string | null; anonymous: boolean }>(
+    "SELECT amount_cents, currency, payer_name, anonymous FROM payments WHERE paypal_order_id = $1 AND status = 'COMPLETED' ORDER BY id LIMIT 1",
+    [orderId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return { amountCents: r.amount_cents, currency: r.currency, payerFirstName: r.payer_name?.split(' ')[0] ?? null, anonymous: r.anonymous };
+}

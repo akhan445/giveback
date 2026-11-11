@@ -4,14 +4,14 @@ import { goalStart, recentActivity, timeAgo } from './campaign';
 const g = (id: string, donor: string, amount: number, date: string, anonymous = false) => ({ id, donor, amount, date, anonymous });
 
 describe('recentActivity', () => {
-  it('lists the newest payments first and hides anonymous names', () => {
+  it('lists the newest payments first and shows anonymous or unnamed ones as Anonymous', () => {
     const rows = recentActivity([
       g('1', 'Ann', 50, '2026-11-02T10:00:00Z'),
       g('2', 'Bo', 80, '2026-11-03T10:00:00Z'),
       g('3', 'Zed', 10, '2026-11-04T10:00:00Z', true),
       g('4', 'Supporter', 5, '2026-11-01T10:00:00Z'),
     ]);
-    expect(rows.map((r) => r.who)).toEqual(['Someone', 'Bo', 'Ann', 'A supporter']);
+    expect(rows.map((r) => r.who)).toEqual(['Anonymous', 'Bo', 'Ann', 'Anonymous']);
   });
   it('limits the list', () => {
     const many = Array.from({ length: 12 }, (_, i) => g(String(i), `D${i}`, 1, `2026-11-02T10:${String(i).padStart(2, '0')}:00Z`));

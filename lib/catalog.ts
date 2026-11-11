@@ -21,6 +21,7 @@ export const orderRequestSchema = z.object({
   currency: z.enum(CURRENCY_CODES).default('USD'),
   coverFees: z.boolean().optional(),
   anonymous: z.boolean().optional(), // supporter does not want their name shown publicly
+  phone: z.boolean().optional(), // supporter pays on their own phone (QR code) instead of on the counter device
 });
 export type OrderRequest = z.input<typeof orderRequestSchema>;
 

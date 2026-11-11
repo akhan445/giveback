@@ -122,7 +122,7 @@ const activity = {
   defaultSize: { width: 400, height: 420 },
   minSize: { width: 260, height: 220 },
   ai: {
-    description: 'A live feed of the latest payments: "William paid $25, just now", "Sarah paid $40, 10 min ago". Anonymous supporters show as Someone.',
+    description: 'A live feed of the latest payments: "William paid $25, just now", "Sarah paid $40, 10 min ago". Anonymous supporters show as Anonymous.',
     usage: 'Use for a live view of payments as they come in.',
     configuration: 'id = payment id, donor = supporter, amount = amount, date = date, anonymous = anonymous. No aggregation.',
   },

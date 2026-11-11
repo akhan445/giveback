@@ -9,7 +9,7 @@ export const goalStart = (g: Goal, now = new Date()) => g.start ?? `${now.toISOS
 
 export type Activity = { id: string; who: string; amount: number; at: string; anonymous: boolean };
 
-/** The latest payments, newest first, for the live feed. Anonymous gifts show as "Someone". */
+/** The latest payments, newest first, for the live feed. Anonymous and unnamed gifts show as "Anonymous". */
 export function recentActivity(
   gifts: Pick<GiftRow, 'id' | 'donor' | 'anonymous' | 'amount' | 'date'>[],
   limit = 8,
@@ -19,7 +19,7 @@ export function recentActivity(
     .slice(0, limit)
     .map((g) => ({
       id: g.id,
-      who: g.anonymous ? 'Someone' : g.donor === 'Supporter' ? 'A supporter' : g.donor,
+      who: g.anonymous || g.donor === 'Supporter' || !g.donor ? 'Anonymous' : g.donor,
       amount: g.amount,
       at: g.date,
       anonymous: g.anonymous,
