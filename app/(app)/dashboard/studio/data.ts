@@ -119,6 +119,7 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['goal', 'Goal', 'currencyFormat'],
           ['raised', 'Raised toward goal', 'currencyFormat'],
           ['since', 'Goal started', 'textFormat'],
+          ['theme', 'Organization type', 'textFormat'],
         ]),
       },
       {

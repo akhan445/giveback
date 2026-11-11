@@ -7,7 +7,7 @@ import { computeCashback } from './cashback';
 import { CATALOG } from './catalog';
 import { countryName, countryRegion } from './countries';
 import { coordsFor } from './geo';
-import { getGoal, toOrgCents } from './history';
+import { getGoal, getOrgProfile, toOrgCents } from './history';
 import { goalStart } from './campaign';
 
 export type GiftRow = {
@@ -51,7 +51,7 @@ export type MonthRow = {
 export type ItemRow = { id: string; giftId: string; item: string; quantity: number; amount: number };
 
 // One row: the fundraising goal and what has been raised toward it (everything since `since`).
-export type CampaignRow = { id: string; name: string; goal: number; raised: number; since: string };
+export type CampaignRow = { id: string; name: string; goal: number; raised: number; since: string; theme: string };
 
 export type StudioData = { asOf: string; org: string; gifts: GiftRow[]; months: MonthRow[]; items: ItemRow[]; campaign: CampaignRow[] };
 
@@ -70,7 +70,7 @@ export async function getStudioData(): Promise<StudioData> {
       `SELECT paypal_capture_id AS id, paid_at, kind, payer_name, anonymous, description, payer_country, payer_city, currency, amount_cents, fee_cents, fee_covered_cents
        FROM payments WHERE status = 'COMPLETED' ORDER BY paid_at DESC`,
     ),
-    db().query<{ name: string }>('SELECT name FROM org_settings WHERE id = 1'),
+    getOrgProfile(),
     getGoal(),
   ]);
 
@@ -160,7 +160,7 @@ export async function getStudioData(): Promise<StudioData> {
 
   const since = goalStart(goal);
   const raised = gifts.filter((g) => g.date.slice(0, 10) >= since).reduce((t, g) => t + g.amount, 0);
-  const campaign: CampaignRow[] = [{ id: 'goal', name: goal.name, goal: dollars(goal.goalCents), raised: Math.round(raised * 100) / 100, since }];
+  const campaign: CampaignRow[] = [{ id: 'goal', name: goal.name, goal: dollars(goal.goalCents), raised: Math.round(raised * 100) / 100, since, theme: org.orgType }];
 
-  return { asOf: new Date().toISOString(), org: org.rows[0]?.name ?? 'Your organization', gifts, months, items, campaign };
+  return { asOf: new Date().toISOString(), org: org.name, gifts, months, items, campaign };
 }

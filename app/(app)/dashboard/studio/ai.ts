@@ -11,12 +11,12 @@ const PROMPT_STARTERS: AgAiPromptStarter[] = [
     prompt: 'Summarise what this page shows: every widget, the fields it reads, and what stands out.',
   },
   {
-    label: 'Overdue invoices',
-    prompt: 'Which customers owe the most on overdue invoices?',
+    label: 'Where do gifts come from?',
+    prompt: 'Which countries do our gifts come from, and which is growing fastest?',
   },
   {
-    label: 'Revenue by month',
-    prompt: 'Add a chart of paid invoice revenue by month.',
+    label: 'Monthly givers',
+    prompt: 'How much of our volume comes from monthly givers, and how has that changed by month?',
   },
 ];
 

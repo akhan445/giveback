@@ -147,6 +147,16 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
     setMode(next);
   };
 
+  // Studio shows its AI assistant only in edit mode, so "Ask agent" opens edit mode with the
+  // assistant expanded and the other panels out of the way.
+  const openAgent = () => {
+    updateState((s) => ({
+      ...s,
+      panels: { ...s.panels, filters: { ...s.panels?.filters, collapsed: true }, edit: { ...s.panels?.edit, collapsed: true }, data: { ...s.panels?.data, collapsed: true }, ai: { ...s.panels?.ai, collapsed: false } },
+    }));
+    setMode('edit');
+  };
+
   // --- Saving -----------------------------------------------------------------------
   const save = () => {
     const api = apiRef.current;
@@ -269,6 +279,7 @@ function ReportsDashboard({ data: initialData, licenseKey, aiModels }: Dashboard
         onSave={save}
         onDiscard={discard}
         onDisplay={() => setDisplay(true)}
+        onAgent={ai ? openAgent : undefined}
         onEditingChange={(next) =>
           next ? changeMode('edit') : guard(() => changeMode('view'))
         }

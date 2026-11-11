@@ -2,7 +2,7 @@
 import { createWidgets } from 'ag-studio-react';
 import type { AgWidgetFormParams } from 'ag-studio';
 import { WorldMapWidget } from '../widgets/world-map';
-import { GoalWidget, LeaderboardWidget, ThermometerWidget } from '../widgets/live-studio-widgets';
+import { ActivityWidget, GoalWidget, ImpactFillWidget, ImpactGridWidget } from '../widgets/live-studio-widgets';
 
 const worldMap = {
   id: 'worldMap',
@@ -34,6 +34,7 @@ const campaignMapping = {
   goal: { type: 'field', supportedRoles: ['numeric'], required: true, aiDescription: 'The fundraising goal (sum of campaign goal).' },
   name: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The goal name.' },
   since: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The date the goal period started.' },
+  theme: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The organization type; it picks the picture and the unit (meals, trees, animals...).' },
 };
 const campaignForm = (params: AgWidgetFormParams) =>
   params.createDefaults({
@@ -42,71 +43,93 @@ const campaignForm = (params: AgWidgetFormParams) =>
       { key: 'goal', label: 'Goal' },
       { key: 'name', label: 'Goal name' },
       { key: 'since', label: 'Started' },
+      { key: 'theme', label: 'Organization type' },
     ],
   });
+const campaignAi = 'raised = sum of campaign raised, goal = sum of campaign goal, name = campaign name, since = campaign since, theme = campaign theme.';
 const icon = (path: string) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6">${path}</svg>`;
 
-const thermometer = {
-  id: 'thermometer',
-  label: 'Goal thermometer',
-  icon: icon('<path d="M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0Z"/>'),
+const impactFill = {
+  id: 'impactFill',
+  label: 'Goal fill picture',
+  icon: icon('<path d="M3 11h18c0 5-3.5 8-9 8s-9-3-9-8Z"/>'),
   dataMapping: campaignMapping,
   form: campaignForm,
-  comp: ThermometerWidget,
+  comp: ImpactFillWidget,
   defaultSize: { width: 280, height: 420 },
   minSize: { width: 200, height: 260 },
   ai: {
-    description: 'A thermometer that fills as the fundraising goal is reached, with the percentage and amounts.',
+    description: 'A picture that fills up as the fundraising goal is reached: a bowl for a food bank, a tree for an environment group, a paw for animal rescue, and so on.',
     usage: 'Use to show progress toward the current fundraising goal on the live display.',
-    configuration: 'raised = sum of campaign raised, goal = sum of campaign goal, name = campaign name, since = campaign since.',
+    configuration: campaignAi,
+  },
+};
+
+const impactGrid = {
+  id: 'impactGrid',
+  label: 'Impact milestone grid',
+  icon: icon('<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>'),
+  dataMapping: campaignMapping,
+  form: campaignForm,
+  comp: ImpactGridWidget,
+  defaultSize: { width: 560, height: 420 },
+  minSize: { width: 300, height: 240 },
+  ai: {
+    description: 'A grid of plates (or trees, paws, hearts...) that lights up from the bottom-left as the goal is reached, with the count of meals served (or trees planted, animals cared for...).',
+    usage: 'Use to show what the money raised has done in real-world units.',
+    configuration: campaignAi,
   },
 };
 
 const goalCard = {
   id: 'goalCard',
-  label: 'Goal progress',
+  label: 'Raised so far',
   icon: icon('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>'),
   dataMapping: campaignMapping,
   form: campaignForm,
   comp: GoalWidget,
-  defaultSize: { width: 400, height: 220 },
+  defaultSize: { width: 400, height: 200 },
   minSize: { width: 240, height: 140 },
   ai: {
     description: 'The amount raised so far as a big number with a progress bar toward the goal.',
     usage: 'Use to show the headline raised-versus-goal figure on the live display.',
-    configuration: 'raised = sum of campaign raised, goal = sum of campaign goal, name = campaign name, since = campaign since.',
+    configuration: campaignAi,
   },
 };
 
-const leaderboardWidget = {
-  id: 'leaderboard',
-  label: 'Donor leaderboard',
-  icon: icon('<path d="M5 20V10M12 20V4M19 20v-7"/>'),
+const activity = {
+  id: 'activity',
+  label: 'Live payments feed',
+  icon: icon('<path d="M4 7h16M4 12h16M4 17h10"/>'),
   dataMapping: {
+    id: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'Payment ID, so each payment is its own row (no aggregation).' },
     donor: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'The supporter name.' },
-    amount: { type: 'field', supportedRoles: ['numeric'], required: true, aiDescription: 'What they gave (sum of amount).' },
-    latest: { type: 'field', supportedRoles: ['dimension', 'numeric'], required: true, aiDescription: 'Their latest gift date (max of date), used to flag new gifts.' },
+    amount: { type: 'field', supportedRoles: ['numeric'], required: true, aiDescription: 'The payment amount (no aggregation).' },
+    date: { type: 'field', supportedRoles: ['dimension', 'numeric'], required: true, aiDescription: 'When the payment was made.' },
+    anonymous: { type: 'field', supportedRoles: ['dimension'], required: true, aiDescription: 'Whether the supporter is anonymous.' },
   },
   form: (params: AgWidgetFormParams) =>
     params.createDefaults({
       dataMappingItems: [
+        { key: 'id', label: 'Payment' },
         { key: 'donor', label: 'Supporter' },
-        { key: 'amount', label: 'Total given' },
-        { key: 'latest', label: 'Latest gift' },
+        { key: 'amount', label: 'Amount' },
+        { key: 'date', label: 'When' },
+        { key: 'anonymous', label: 'Anonymous' },
       ],
     }),
-  comp: LeaderboardWidget,
-  defaultSize: { width: 480, height: 420 },
+  comp: ActivityWidget,
+  defaultSize: { width: 400, height: 420 },
   minSize: { width: 260, height: 220 },
   ai: {
-    description: 'A ranked list of the top named supporters by total given, with a bar and a NEW flag on gifts from the last ten minutes.',
-    usage: 'Use for a live leaderboard of top supporters. Anonymous gifts are left out.',
-    configuration: 'donor = supporter, amount = sum of amount, latest = max of date.',
+    description: 'A live feed of the latest payments: "William paid $25, just now", "Sarah paid $40, 10 min ago". Anonymous supporters show as Someone.',
+    usage: 'Use for a live view of payments as they come in.',
+    configuration: 'id = payment id, donor = supporter, amount = amount, date = date, anonymous = anonymous. No aggregation.',
   },
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const giveWidgets = createWidgets<any>({
-  additionalTypes: [worldMap as never, thermometer as never, goalCard as never, leaderboardWidget as never],
-  menu: [{ label: 'giveback', widgetIds: ['worldMap', 'thermometer', 'goalCard', 'leaderboard'] }],
+  additionalTypes: [worldMap as never, impactFill as never, impactGrid as never, goalCard as never, activity as never],
+  menu: [{ label: 'giveback', widgetIds: ['worldMap', 'impactFill', 'impactGrid', 'goalCard', 'activity'] }],
 });

@@ -20,6 +20,7 @@ export function ReportHeader({
   onSave,
   onDiscard,
   onDisplay,
+  onAgent,
   onEditingChange,
 }: {
   reportName: string;
@@ -34,6 +35,7 @@ export function ReportHeader({
   onSave: () => void;
   onDiscard: () => void;
   onDisplay: () => void;
+  onAgent?: () => void;
   onEditingChange: (editing: boolean) => void;
 }) {
   return (
@@ -65,6 +67,11 @@ export function ReportHeader({
               Save
             </Button>
           </>
+        )}
+        {!editing && onAgent && (
+          <Button variant="secondary" size="sm" onClick={onAgent}>
+            Ask agent
+          </Button>
         )}
         {!editing && (
           <Button variant="primary" size="sm" onClick={onDisplay}>
