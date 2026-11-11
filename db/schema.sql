@@ -39,3 +39,8 @@ CREATE TABLE IF NOT EXISTS org_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO org_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Fundraising goal shown on the live display (thermometer, goal card). goal_start null = first of this month.
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_name  TEXT NOT NULL DEFAULT 'Holiday meals campaign';
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_cents INTEGER NOT NULL DEFAULT 800000 CHECK (goal_cents > 0);
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS goal_start DATE;

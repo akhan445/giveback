@@ -7,7 +7,8 @@ import { computeCashback } from './cashback';
 import { CATALOG } from './catalog';
 import { countryName, countryRegion } from './countries';
 import { coordsFor } from './geo';
-import { toOrgCents } from './history';
+import { getGoal, toOrgCents } from './history';
+import { goalStart } from './campaign';
 
 export type GiftRow = {
   id: string;
@@ -49,7 +50,10 @@ export type MonthRow = {
 
 export type ItemRow = { id: string; giftId: string; item: string; quantity: number; amount: number };
 
-export type StudioData = { asOf: string; org: string; gifts: GiftRow[]; months: MonthRow[]; items: ItemRow[] };
+// One row: the fundraising goal and what has been raised toward it (everything since `since`).
+export type CampaignRow = { id: string; name: string; goal: number; raised: number; since: string };
+
+export type StudioData = { asOf: string; org: string; gifts: GiftRow[]; months: MonthRow[]; items: ItemRow[]; campaign: CampaignRow[] };
 
 // Reports-only view of recurring giving: we infer "monthly givers" from payment history rather than
 // from PayPal Subscriptions (real recurring billing is a stretch goal).
@@ -58,7 +62,7 @@ const MONTHLY_GIVER_MONTHS = 3;
 const dollars = (cents: number) => Math.round(cents) / 100;
 
 export async function getStudioData(): Promise<StudioData> {
-  const [pay, org] = await Promise.all([
+  const [pay, org, goal] = await Promise.all([
     db().query<{
       id: string; paid_at: Date; kind: string; payer_name: string | null; anonymous: boolean;
       description: string | null; payer_country: string | null; payer_city: string | null; currency: string; amount_cents: number; fee_cents: number; fee_covered_cents: number;
@@ -67,6 +71,7 @@ export async function getStudioData(): Promise<StudioData> {
        FROM payments WHERE status = 'COMPLETED' ORDER BY paid_at DESC`,
     ),
     db().query<{ name: string }>('SELECT name FROM org_settings WHERE id = 1'),
+    getGoal(),
   ]);
 
   const byMonth = new Map<string, { n: number; volume: number; fees: number }>();
@@ -153,5 +158,9 @@ export async function getStudioData(): Promise<StudioData> {
       };
     });
 
-  return { asOf: new Date().toISOString(), org: org.rows[0]?.name ?? 'Your organization', gifts, months, items };
+  const since = goalStart(goal);
+  const raised = gifts.filter((g) => g.date.slice(0, 10) >= since).reduce((t, g) => t + g.amount, 0);
+  const campaign: CampaignRow[] = [{ id: 'goal', name: goal.name, goal: dollars(goal.goalCents), raised: Math.round(raised * 100) / 100, since }];
+
+  return { asOf: new Date().toISOString(), org: org.rows[0]?.name ?? 'Your organization', gifts, months, items, campaign };
 }

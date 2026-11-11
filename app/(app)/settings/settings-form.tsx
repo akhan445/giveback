@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import type { Goal } from '@/lib/campaign';
 import { ORG_TYPES, TRADITIONS, type OrgProfile, type OrgType, type Tradition } from '@/lib/org';
 import styles from '../overview/overview.module.css';
 
-export function SettingsForm({ initial }: { initial: OrgProfile }) {
+export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; initialGoal: Goal }) {
+  const [goalName, setGoalName] = useState(initialGoal.name);
+  const [goalDollars, setGoalDollars] = useState(String(initialGoal.goalCents / 100));
   const [name, setName] = useState(initial.name);
   const [orgType, setOrgType] = useState<OrgType>(initial.orgType);
   const [tradition, setTradition] = useState<Tradition>(initial.tradition ?? 'other');
@@ -18,7 +21,11 @@ export function SettingsForm({ initial }: { initial: OrgProfile }) {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, orgType, tradition: orgType === 'faith' ? tradition : null }),
     });
-    setState(res.ok ? 'saved' : 'error');
+    const goalRes = await fetch('/api/goal', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: goalName, goalCents: Math.round(Number(goalDollars) * 100), start: initialGoal.start }),
+    });
+    setState(res.ok && goalRes.ok ? 'saved' : 'error');
   }
   const field = { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 } as const;
   const input = { border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px', font: 'inherit', background: 'var(--bg)', color: 'var(--ink)' } as const;
@@ -43,6 +50,12 @@ export function SettingsForm({ initial }: { initial: OrgProfile }) {
               </select>
             </div>
           )}
+          <div style={field}><label className={styles.label} htmlFor="goalName">Fundraising goal name</label><input id="goalName" style={input} value={goalName} onChange={(e) => setGoalName(e.target.value)} maxLength={80} required /></div>
+          <div style={field}>
+            <label className={styles.label} htmlFor="goal">Goal amount</label>
+            <input id="goal" style={input} type="number" min={1} step="1" value={goalDollars} onChange={(e) => setGoalDollars(e.target.value)} required />
+            <span className={styles.sub}>Shown on the thermometer and goal card of the live display. Counts everything raised since the first of this month.</span>
+          </div>
           <div className={styles.actions} style={{ alignItems: 'center' }}>
             <button className={`${styles.btn} ${styles.p}`} disabled={state === 'saving'}>Save</button>
             {state === 'saved' && <span className={`${styles.sub} ${styles.good}`}>Saved. <Link href="/overview" style={{ color: 'inherit' }}>Back to dashboard</Link></span>}

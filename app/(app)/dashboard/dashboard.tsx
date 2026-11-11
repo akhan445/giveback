@@ -10,7 +10,7 @@
 // Nothing tracks edits as they happen. Save reads the report from Studio with getState(), and
 // leaving a report compares Studio's state with the saved one there and then.
 
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   AgStudioAiModule,
   enableStudioDevValidations,
@@ -28,6 +28,7 @@ import {
   UnsavedChangesDialog,
   type DashboardDialog,
 } from './components/dialogs';
+import { DisplayOverlay } from './components/display-overlay';
 import { EmptyData } from './components/empty-data';
 import { ReportHeader } from './components/report-header';
 import {
@@ -78,7 +79,23 @@ export function Dashboard(props: DashboardProps) {
   return inBrowser ? <ReportsDashboard {...props} /> : <DashboardSkeleton />;
 }
 
-function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
+const REFRESH_MS = 10_000;
+
+function ReportsDashboard({ data: initialData, licenseKey, aiModels }: DashboardProps) {
+  // Fresh report data every few seconds, so new payments show up on the widgets and the display.
+  const [data, setData] = useState(initialData);
+  const [display, setDisplay] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      fetch('/api/studio-data', { cache: 'no-store' })
+        .then((res) => (res.ok ? (res.json() as Promise<StudioData>) : null))
+        .then((next) => next && setData(next))
+        .catch(() => {});
+    }, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+
   const { store, latest, update, editReport } = useReports();
   const apiRef = useRef<AgStudioApi | null>(null);
 
@@ -251,6 +268,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
         onRedo={() => apiRef.current?.redo()}
         onSave={save}
         onDiscard={discard}
+        onDisplay={() => setDisplay(true)}
         onEditingChange={(next) =>
           next ? changeMode('edit') : guard(() => changeMode('view'))
         }
@@ -289,6 +307,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
         )}
       </div>
 
+      {display && <DisplayOverlay data={data} onClose={() => setDisplay(false)} />}
       <UnsavedChangesDialog
         open={dialog?.kind === 'unsaved'}
         reportName={saved.name}

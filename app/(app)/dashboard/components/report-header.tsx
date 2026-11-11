@@ -19,6 +19,7 @@ export function ReportHeader({
   onRedo,
   onSave,
   onDiscard,
+  onDisplay,
   onEditingChange,
 }: {
   reportName: string;
@@ -32,6 +33,7 @@ export function ReportHeader({
   onRedo: () => void;
   onSave: () => void;
   onDiscard: () => void;
+  onDisplay: () => void;
   onEditingChange: (editing: boolean) => void;
 }) {
   return (
@@ -63,6 +65,11 @@ export function ReportHeader({
               Save
             </Button>
           </>
+        )}
+        {!editing && (
+          <Button variant="primary" size="sm" onClick={onDisplay}>
+            Display ⏎
+          </Button>
         )}
         {editing ? (
           <Button variant="ghost" size="sm" onClick={() => onEditingChange(false)}>

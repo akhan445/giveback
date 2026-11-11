@@ -109,6 +109,19 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
         ]),
       },
       {
+        id: 'campaign',
+        name: 'Fundraising goal',
+        description: 'One row: the current fundraising goal, what has been raised toward it since it started, and the start date.',
+        data: data.campaign,
+        fields: fields([
+          ['id', 'Goal ID', 'textFormat', true],
+          ['name', 'Goal name', 'textFormat'],
+          ['goal', 'Goal', 'currencyFormat'],
+          ['raised', 'Raised toward goal', 'currencyFormat'],
+          ['since', 'Goal started', 'textFormat'],
+        ]),
+      },
+      {
         id: 'months',
         description: 'One row per month: payment count, volume, fees, cashback earned, cashback tier and rate, the effective fee rate after cashback, and how much monthly givers (named supporters seen in 3+ months) gave.',
         data: data.months,

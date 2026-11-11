@@ -308,8 +308,42 @@ const recurring: AgPageState = {
   },
 };
 
+const live: AgPageState = {
+  id: 'live',
+  widgets: {
+    thermo: {
+      type: 'thermometer' as 'value',
+      dataMapping: { raised: [sum('campaign.raised')], goal: [sum('campaign.goal')], name: [{ id: 'campaign.name' }], since: [{ id: 'campaign.since' }] } as never,
+      format: title('Goal'),
+    },
+    goal: {
+      type: 'goalCard' as 'value',
+      dataMapping: { raised: [sum('campaign.raised')], goal: [sum('campaign.goal')], name: [{ id: 'campaign.name' }], since: [{ id: 'campaign.since' }] } as never,
+      format: title('Raised so far'),
+    },
+    board: {
+      type: 'leaderboard' as 'value',
+      dataMapping: {
+        donor: [{ id: 'gifts.donor' }],
+        amount: [sum('gifts.amount')],
+        latest: [{ id: 'gifts.date', aggregation: 'max' }],
+      } as never,
+      format: title('Top supporters'),
+    },
+  },
+  widgetLayout: {
+    thermo: at(0, 0, 7, 24),
+    goal: at(7, 0, 17, 9),
+    board: at(7, 9, 17, 15),
+  },
+  // The leaderboard ranks named supporters since the goal started (the display itself applies the same rule).
+  filter: {
+    page: [{ field: { id: 'gifts.anonymous' }, model: { operator: 'isFalse' } }],
+  },
+};
+
 // The report opens on its first page.
 export const dashboardReport: AgReportState = {
   selectedPageId: money.id,
-  pages: [money, reach, cashback, supporters, recurring],
+  pages: [live, money, reach, cashback, supporters, recurring],
 };
