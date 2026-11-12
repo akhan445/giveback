@@ -1,10 +1,9 @@
 // The rules for collecting cashback, as pure functions (no database, no PayPal) so they are easy to test.
 //   - Manual collect: balance must reach the minimum, and one payout is allowed per cooldown period.
-//   - Year-end sweep: pays whatever is left, ignoring the minimum and the cooldown.
 //   - Never two payouts at once.
-export type PayoutTrigger = 'manual' | 'year_end';
+export type PayoutTrigger = 'manual' | 'year_end'; // new payouts are always 'manual'; old rows may say 'year_end' (the automatic sweep was removed)
 
-export const DEFAULT_MIN_CENTS = 2_500; // $25
+export const DEFAULT_MIN_CENTS = 1_000; // $10
 export const DEFAULT_COOLDOWN_DAYS = 30;
 
 export type PayoutCheck =
@@ -26,7 +25,6 @@ export function checkPayout(i: {
   if (!i.hasRecipient) return { ok: false, reason: 'no_recipient' };
   if (i.inFlight) return { ok: false, reason: 'in_flight' };
   if (i.balanceCents <= 0) return { ok: false, reason: 'no_balance' };
-  if (i.trigger === 'year_end') return { ok: true };
   if (i.balanceCents < i.minCents) return { ok: false, reason: 'below_minimum', shortCents: i.minCents - i.balanceCents };
   if (i.lastPayoutAt) {
     const availableAt = new Date(i.lastPayoutAt.getTime() + i.cooldownDays * 86_400_000);

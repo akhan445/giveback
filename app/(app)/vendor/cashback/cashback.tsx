@@ -37,7 +37,7 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
     return () => clearInterval(t);
   }, [a.inFlight, router]);
 
-  async function run(trigger: 'manual' | 'year_end') {
+  async function run(trigger: 'manual') {
     setBusy(true);
     setMsg(null);
     try {
@@ -59,7 +59,7 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
     setMsg(null);
     try {
       const res = await fetch('/api/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
-      if (res.ok) setMsg({ kind: 'good', text: action === 'reset' ? 'Demo data reset to the original seed. PayPal sandbox data was not changed.' : 'Added a month of sample activity to the current month.' });
+      if (res.ok) setMsg({ kind: 'good', text: action === 'reset' ? 'Demo data reset to the original seed. PayPal sandbox data was not changed.' : 'A month passed: sample payments were added to this month and earlier payouts moved 30 days back, so you can collect again.' });
       else setMsg({ kind: 'err', text: ((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not complete that.' });
     } catch {
       setMsg({ kind: 'err', text: 'Could not reach the server.' });
@@ -132,14 +132,12 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
             <div className={s.walletBig}>{money(a.balanceCents)}<small>{a.currency}</small></div>
             <div className={s.walletNote}>{monthsWithVolume} month{monthsWithVolume === 1 ? '' : 's'} of volume. Paid by giveback to your PayPal account <b>{a.recipientEmail ?? '(none set)'}</b>.</div>
             <button className={s.collect} disabled={!a.check.ok || busy} onClick={() => setConfirm(true)}><span>Collect cashback</span><span>⏎</span></button>
-            <div className={s.why}>{reason}</div>
+            <div className={s.why}>{reason}{reason && a.check.ok === false && a.check.reason === 'cooldown' ? ' (sandbox: “Add a month of sample activity” moves the clock forward 30 days)' : ''}</div>
             <a className={s.ghost} href="/api/reports/year-end"><span>Year-end report PDF</span><span>↓</span></a>
             <div className={s.rules}>
               <span className={minMet ? s.ok : ''}>{minMet ? '✓' : '○'} Minimum {money(a.minCents)}</span>
               <span className={waitClear ? s.ok : ''}>{waitClear ? '✓' : '○'} {a.cooldownDays}-day wait between payouts{waitClear ? ' clear' : ''}</span>
-              <span>Remaining balance auto-pays Dec 31</span>
             </div>
-            <button className={s.sim} disabled={!a.yearEndCheck.ok || busy} onClick={() => void run('year_end')} title="Sandbox only: runs the Dec 31 sweep now, so it can be shown without waiting for year end.">Simulate year-end payout (sandbox)</button>
             <div className={s.demo}>
               <button className={s.sim} disabled={busy} onClick={() => void demo('simulate_month')} title="Sandbox only: inserts realistic sample payments for the current month, so you can reach the minimum and test the payout.">Add a month of sample activity (sandbox)</button>
               {resetAsk ? (
@@ -196,7 +194,7 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
         <section className={base.card}>
           <div className={base.chartHead}><div className={base.label}>Payout log</div><div className={base.label} style={{ textTransform: 'none' }}>live status from PayPal · {a.cooldownDays} days between payouts</div></div>
           {a.payouts.length === 0 ? (
-            <div className={s.empty}>No payouts yet. Collect your cashback above, or it is paid out automatically on Dec 31.</div>
+            <div className={s.empty}>No payouts yet. Collect your cashback above.</div>
           ) : (
             <div className={s.scroll}>
               <table className={s.table}>

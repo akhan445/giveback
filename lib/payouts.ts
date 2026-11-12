@@ -61,7 +61,6 @@ export type CashbackAccount = {
   lastPayoutAt: string | null;
   inFlight: boolean;
   check: PayoutCheck;
-  yearEndCheck: PayoutCheck;
   minCents: number;
   cooldownDays: number;
 };
@@ -82,7 +81,6 @@ export async function getCashbackAccount(now = new Date()): Promise<CashbackAcco
     year, currency: DEFAULT_CURRENCY, months, totals, paidCents, balanceCents, recipientEmail, payouts,
     lastPayoutAt: last?.toISOString() ?? null, inFlight,
     check: checkPayout({ ...common, trigger: 'manual' }),
-    yearEndCheck: checkPayout({ ...common, trigger: 'year_end' }),
     minCents, cooldownDays,
   };
 }
@@ -94,14 +92,14 @@ export class PayoutBlockedError extends Error {
 }
 
 /** Runs the checks, records the payout, then sends it through PayPal Payouts. Returns the saved row. */
-export async function requestPayout(trigger: PayoutTrigger, now = new Date()): Promise<PayoutRow> {
+export async function requestPayout(trigger: PayoutTrigger = 'manual', now = new Date()): Promise<PayoutRow> {
   const client = await db().connect();
   let row: PayoutRow;
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1)', [LOCK_KEY]);
     const acct = await getCashbackAccount(now); // reads through the pool; the lock keeps other requests out until we commit
-    const check = trigger === 'year_end' ? acct.yearEndCheck : acct.check;
+    const check = acct.check;
     if (!check.ok) throw new PayoutBlockedError(check);
     const { rows } = await client.query<Raw>(
       `INSERT INTO cashback_payouts (year, amount_cents, currency, recipient_email, trigger) VALUES ($1,$2,$3,$4,$5) RETURNING ${COLS}`,
@@ -123,7 +121,7 @@ export async function requestPayout(trigger: PayoutTrigger, now = new Date()): P
       currency: row.currency,
       receiverEmail: row.recipientEmail,
       subject: 'Your giveback cashback has arrived',
-      note: `giveback cashback for ${row.year}${trigger === 'year_end' ? ' (year-end payout)' : ''}. Thank you for raising money with giveback.`,
+      note: `giveback cashback for ${row.year}. Thank you for raising money with giveback.`,
     });
     const { rows } = await db().query<Raw>(
       `UPDATE cashback_payouts SET paypal_batch_id = $2, status = $3, updated_at = now() WHERE id = $1 RETURNING ${COLS}`,

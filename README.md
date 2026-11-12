@@ -48,7 +48,7 @@ Honesty matters here, so plainly:
 |---|---|---|
 | **Orders v2** + **JS SDK v6** | `app/api/orders`, `lib/paypal.ts`, Counter | Checkout on the device, and phone/QR checkout |
 | **Webhooks** (verified) | `app/api/webhooks/paypal` | Idempotent recording of payments, payout and invoice status |
-| **Payouts** | `lib/paypal-payouts.ts`, `lib/settlements.ts`, `lib/payouts.ts` | Instant settlement to the nonprofit; monthly and year-end cashback |
+| **Payouts** | `lib/paypal-payouts.ts`, `lib/settlements.ts`, `lib/payouts.ts` | Instant settlement to the nonprofit; on-request cashback (once every 30 days, $10 minimum) |
 | **Invoicing** | `lib/sponsors.ts` | Sponsor invoices (create, send, status) |
 | **Transaction Search**, **Balances** | `app/(endpoints)` pages, AG Studio data | Reports over live sandbox data |
 
@@ -94,12 +94,11 @@ Two PayPal sandbox apps are used: the **vendor's merchant account** (`PAYPAL_CLI
 - `PAYPAL_WEBHOOK_ID`, `PAYOUT_WEBHOOK_ID`: webhook ids for the two apps. Point both webhooks at `https://<your-host>/api/webhooks/paypal`. Subscribe the vendor app to payment, payouts and invoicing events.
 - `NEXT_PUBLIC_APP_URL`: the public URL (QR codes and PayPal return links use it; it must not be localhost for phone payments).
 - `AG_STUDIO` (licence), `AG_STUDIO_OPENAI_API_KEY`, `OPENAI_MODELS`, `OPENAI_TPM`: the dashboard and AI assistant.
-- `CRON_SECRET`: protects the year-end payout cron (`vercel.json`).
 - No secrets are committed; `.env.local` is git-ignored.
 
 ### Deploying
 
-Deployed on Vercel (Hobby) with Neon Postgres. Set the same variables in the project settings and add the webhook URL above in PayPal. The year-end cashback payout runs as a Vercel Cron on Dec 31.
+Deployed on Vercel (Hobby) with Neon Postgres. Set the same variables in the project settings and add the webhook URL above in PayPal.
 
 ## How it is built
 

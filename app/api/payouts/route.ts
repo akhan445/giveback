@@ -11,8 +11,7 @@ export async function GET() {
 }
 
 // The client only says WHICH payout to run; the amount, recipient and eligibility are decided on the server.
-// 'year_end' is the sandbox "Simulate year-end" button (in production the Dec 31 cron runs it).
-const schema = z.object({ trigger: z.enum(['manual', 'year_end']) });
+const schema = z.object({ trigger: z.enum(['manual']) });
 
 export async function POST(req: Request) {
   if (!allow(`payout:${clientKey(req.headers)}`, Date.now(), 10, 10 * 60_000)) return NextResponse.json({ error: 'Too many attempts. Try again in a few minutes.' }, { status: 429 });

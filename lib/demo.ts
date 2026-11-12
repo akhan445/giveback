@@ -4,9 +4,15 @@ import { db } from './db';
 import { seedPayments } from './demo-seed';
 import { DEFAULT_COUNTER_TITLE } from './catalog-store';
 
-/** Adds realistic sample payments for the current month (marked source='seed', so they are never settled through PayPal). */
+/**
+ * "A month passes": adds realistic sample payments for the current month (marked source='seed', so they are never settled
+ * through PayPal) and moves earlier cashback payouts 30 days into the past, so the 30-day wait is over and the new
+ * cashback can be collected again. Repeatable.
+ */
 export async function simulateMonth(): Promise<number> {
-  return seedPayments(db(), { sample: true });
+  const n = await seedPayments(db(), { sample: true });
+  await db().query("UPDATE cashback_payouts SET created_at = created_at - interval '30 days', updated_at = now()");
+  return n;
 }
 
 /** Clears payments, settlements, cashback payouts, sponsor invoices and Counter items, then restores the original seed. */

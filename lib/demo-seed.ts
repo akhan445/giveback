@@ -67,7 +67,7 @@ export async function seedPayments(pool: Pick<Pool, 'query'>, opts: { log?: bool
 
   let n = 0;
   const rowsOut: { id: string; amount: number; fee: number; pfee: number; cover: number; cur: string; kind: string; desc: string; at: Date; name: string; anon: boolean; country: string; city: string }[] = [];
-  for (const m of sample ? [{ offset: 0, targetCents: 150_000 }] : MONTHS) {
+  for (const m of sample ? [{ offset: 0, targetCents: 400_000 }] : MONTHS) {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + m.offset, 1));
     const daysInMonth = m.offset === 0 ? Math.max(1, now.getUTCDate() - 1) : new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
     let volume = 0;
