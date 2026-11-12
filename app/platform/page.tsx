@@ -6,6 +6,7 @@ import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { PAYOUT_FEE_BP, PAYPAL_FIXED_USD_CENTS, PAYPAL_RATE_BP, PLATFORM_FIXED_USD_CENTS, PLATFORM_RATE_BP, splitPayment } from '@/lib/fees';
 import { getYearLedger } from '@/lib/ledger';
 import { ScaleModel } from './scale-model';
+import { GivebackMark } from '../brand';
 import styles from './platform.module.css';
 
 export const metadata: Metadata = { title: 'Platform economics' };
@@ -43,7 +44,7 @@ export default async function PlatformPage() {
   return (
     <div className={styles.wrap}>
       <header className={styles.nav}>
-        <Link href="/" className={styles.brand}><i>g</i>giveback</Link>
+        <Link href="/" className={styles.brand}><GivebackMark size={34} />giveback</Link>
         <div className={styles.pills}>
           <span className={styles.pill}>Sandbox demo</span>
           <Link href="/vendor/dashboard" className={styles.pill}>Vendor app →</Link>

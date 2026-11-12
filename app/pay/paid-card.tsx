@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { CURRENCIES, type CurrencyCode } from '@/lib/currency';
 import { centsToDecimal } from '@/lib/money';
+import { RiversideMark } from '../brand';
 import styles from './pay.module.css';
 
 // The confirmation a supporter sees on their phone: PAID stamp, amount and a thank-you. `pending` is for
@@ -10,6 +11,7 @@ export function PaidCard({ org, amountCents, currency, firstName, pending = fals
   return (
     <main className={styles.root}>
       <div className={styles.card}>
+        <RiversideMark size={56} title={org} />
         <span className={styles.org}>{org}</span>
         {pending ? null : <div className={styles.stamp}>PAID</div>}
         <div className={styles.amount}>

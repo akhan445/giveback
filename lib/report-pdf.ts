@@ -1,6 +1,7 @@
 // Year-end "giveback report" as a PDF: savings summary, cashback by month with the tier reached, the
 // illustrative competitor comparison and the payout log. Built with pdf-lib (pure JS, runs on Vercel).
 // The standard PDF fonts only cover basic Latin, so text is kept to plain characters.
+import { RIVERSIDE_ICON_PNG } from './brand-assets';
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import type { LedgerMonth, YearTotals } from './ledger';
 import type { PayoutRow } from './payouts';
@@ -42,6 +43,8 @@ export async function buildYearEndPdf(d: ReportData): Promise<Uint8Array> {
   const rule = (yy: number, dashed = false) => page.drawLine({ start: { x: M, y: yy }, end: { x: M + W, y: yy }, thickness: 0.6, color: LINE, ...(dashed ? { dashArray: [2, 3] } : {}) });
 
   // Header
+  const logo = await pdf.embedPng(RIVERSIDE_ICON_PNG);
+  page.drawImage(logo, { x: M + W - 40, y: y - 28, width: 40, height: 40 });
   text('GIVEBACK  |  YEAR-END REPORT', M, y, 9, mono, MUTE);
   y -= 30;
   text(d.orgName, M, y, 24, bold);

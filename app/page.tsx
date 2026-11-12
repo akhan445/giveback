@@ -6,6 +6,7 @@ import { TIERS } from '@/lib/cashback';
 import { CURRENCY_CODES } from '@/lib/currency';
 import { PAYPAL_FIXED_USD_CENTS, PAYPAL_RATE_BP, PLATFORM_FIXED_USD_CENTS, PLATFORM_RATE_BP, splitPayment } from '@/lib/fees';
 import { LandingMap } from './landing-map';
+import { GivebackMark } from './brand';
 import styles from './landing.module.css';
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--gb-ui' });
@@ -51,7 +52,7 @@ export default function Home() {
     <div className={`${dmSans.variable} ${plexMono.variable} ${styles.page}`}>
       <div className={styles.wrap}>
         <header className={styles.nav}>
-          <div className={styles.brand}><i>g</i>giveback</div>
+          <div className={styles.brand}><GivebackMark size={34} />giveback</div>
           <div className={styles.pills}>
             <span className={styles.pill}>Sandbox demo</span>
             <span className={styles.pill}>Built on PayPal</span>

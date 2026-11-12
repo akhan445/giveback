@@ -5,6 +5,7 @@ import { MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
 import { feeCoverCents } from '@/lib/fees';
 import { CURRENCIES, type CurrencyCode } from '@/lib/currency';
 import { centsToDecimal } from '@/lib/money';
+import { RiversideMark } from '../../brand';
 import styles from '../pay.module.css';
 
 const PRESETS = [10, 25, 50, 100]; // whole units of the organization's currency
@@ -46,6 +47,7 @@ export function DonateForm({ org, goalName, currency, unit, unitCents }: { org: 
   return (
     <main className={styles.root}>
       <div className={styles.card} style={{ alignItems: 'stretch', textAlign: 'left' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><RiversideMark size={56} title={org} /></div>
         <span className={styles.org} style={{ textAlign: 'center' }}>{org}</span>
         <h1 className={styles.thanks} style={{ margin: '4px 0 0', textAlign: 'center' }}>{goalName}</h1>
         <p className={styles.note} style={{ textAlign: 'center', alignSelf: 'center' }}>Choose an amount and pay with PayPal. No account needed on this page.</p>

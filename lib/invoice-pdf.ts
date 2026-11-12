@@ -1,5 +1,6 @@
 // The cashback payout invoice: one PDF per successful payout, rebuilt on demand from the stored payout and the
 // payment ledger (nothing is stored, so it always matches the books). Plain Latin text only (standard PDF fonts).
+import { GIVEBACK_ICON_PNG } from './brand-assets';
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import type { LedgerMonth } from './ledger';
 import type { PayoutRow } from './payouts';
@@ -38,6 +39,8 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   const right = (t: string, xr: number, yy: number, size: number, font: PDFFont = reg, color = INK) => text(t, xr - font.widthOfTextAtSize(ascii(t), size), yy, size, font, color);
   const rule = (yy: number, dashed = false) => page.drawLine({ start: { x: M, y: yy }, end: { x: M + W, y: yy }, thickness: 0.6, color: LINE, ...(dashed ? { dashArray: [2, 3] } : {}) });
 
+  const logo = await pdf.embedPng(GIVEBACK_ICON_PNG);
+  page.drawImage(logo, { x: M + W - 34, y: y - 22, width: 34, height: 34 });
   text('GIVEBACK  |  CASHBACK PAYOUT INVOICE', M, y, 9, mono, MUTE);
   y -= 34;
   text('Invoice', M, y, 26, bold);
