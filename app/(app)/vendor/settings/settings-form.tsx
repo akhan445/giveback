@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Goal } from '@/lib/campaign';
 import { CELL_SHAPES, HERO_SHAPES, defaultImpact, resolveImpact, type CellShape, type HeroShape, type Impact } from '@/lib/impact';
@@ -12,6 +13,16 @@ import styles from '../dashboard/overview.module.css';
 const PREVIEW_PCT = 0.71;
 
 export function SettingsForm({ initial, initialGoal, initialPayoutEmail }: { initial: OrgProfile; initialGoal: Goal; initialPayoutEmail: string }) {
+  const router = useRouter();
+  const [resetState, setResetState] = useState<'idle' | 'ask' | 'busy' | 'done' | 'error'>('idle');
+  async function resetDemo() {
+    setResetState('busy');
+    try {
+      const res = await fetch('/api/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'reset' }) });
+      setResetState(res.ok ? 'done' : 'error');
+      if (res.ok) router.refresh();
+    } catch { setResetState('error'); }
+  }
   // Organization
   const [name, setName] = useState(initial.name);
   const [orgType, setOrgType] = useState<OrgType>(initial.orgType);
@@ -176,6 +187,29 @@ export function SettingsForm({ initial, initialGoal, initialPayoutEmail }: { ini
             {state === 'error' && <span className={styles.sub} style={{ color: 'var(--red)' }}>Could not save.</span>}
           </div>
         </form>
+
+        <section className={styles.card} style={{ marginTop: 16 }}>
+          <div className={styles.label}>Demo data · sandbox</div>
+          {resetState === 'ask' || resetState === 'busy' ? (
+            <>
+              <div className={styles.sub} style={{ marginTop: 8 }}>Clears sample and test payments, settlements, cashback payouts, sponsor invoices, Counter items and the saved AI chat, summary and drafts, then restores the original seed.</div>
+              <div className={styles.sub} style={{ marginTop: 6 }}><b style={{ color: 'var(--ink)' }}>This does not reset PayPal.</b> Sandbox balances and transactions stay and must be cleared by hand in PayPal&rsquo;s developer dashboard.</div>
+              <div className={styles.actions} style={{ marginTop: 10 }}>
+                <button type="button" className={`${styles.btn} ${styles.p}`} disabled={resetState === 'busy'} onClick={() => void resetDemo()}>{resetState === 'busy' ? 'Resetting…' : 'Yes, reset demo data'}</button>
+                <button type="button" className={styles.btn} disabled={resetState === 'busy'} onClick={() => setResetState('idle')}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.sub} style={{ marginTop: 8 }}>Restore the original sample history for a clean demo. PayPal sandbox balances and transactions are not reset and must be cleared by hand in PayPal&rsquo;s developer dashboard.</div>
+              <div className={styles.actions} style={{ marginTop: 10, alignItems: 'center' }}>
+                <button type="button" className={styles.btn} onClick={() => setResetState('ask')}>Reset demo data</button>
+                {resetState === 'done' && <span className={`${styles.sub} ${styles.good}`}>Demo data reset. PayPal sandbox data was not changed.</span>}
+                {resetState === 'error' && <span className={styles.sub} style={{ color: 'var(--red)' }}>Could not reset.</span>}
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );

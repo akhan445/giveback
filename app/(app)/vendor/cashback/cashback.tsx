@@ -26,7 +26,6 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
   const pct = (bp: number) => `${(bp / 100).toFixed(2)}%`;
 
   const [confirm, setConfirm] = useState(false);
-  const [resetAsk, setResetAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'good' | 'err'; text: string } | null>(null);
 
@@ -54,18 +53,17 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
     }
   }
 
-  async function demo(action: 'simulate_month' | 'reset') {
+  async function demo(action: 'simulate_month') {
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch('/api/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
-      if (res.ok) setMsg({ kind: 'good', text: action === 'reset' ? 'Demo data reset to the original seed. PayPal sandbox data was not changed.' : 'A month passed: sample payments were added to this month and earlier payouts moved 30 days back, so you can collect again.' });
+      if (res.ok) setMsg({ kind: 'good', text: 'A month passed: sample payments were added to this month and earlier payouts moved 30 days back, so you can collect again.' });
       else setMsg({ kind: 'err', text: ((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not complete that.' });
     } catch {
       setMsg({ kind: 'err', text: 'Could not reach the server.' });
     } finally {
       setBusy(false);
-      setResetAsk(false);
       router.refresh();
     }
   }
@@ -140,19 +138,7 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
             </div>
             <div className={s.demo}>
               <button className={s.sim} disabled={busy} onClick={() => void demo('simulate_month')} title="Sandbox only: inserts realistic sample payments for the current month, so you can reach the minimum and test the payout.">Add a month of sample activity (sandbox)</button>
-              {resetAsk ? (
-                <div className={s.resetAsk}>
-                  <div>Clears sample and test payments, settlements, cashback payouts, sponsor invoices and Counter items, then restores the original seed.</div>
-                  <div><b>This does not reset PayPal.</b> Sandbox balances and transactions stay and must be cleared by hand in PayPal&rsquo;s developer dashboard.</div>
-                  <div className={s.resetBtns}>
-                    <button className={s.sim} disabled={busy} onClick={() => void demo('reset')}>Yes, reset demo data</button>
-                    <button className={s.sim} disabled={busy} onClick={() => setResetAsk(false)}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <button className={s.sim} disabled={busy} onClick={() => setResetAsk(true)}>Reset demo data (sandbox)</button>
-              )}
-              <div className={s.simNote}>Sample data only. PayPal sandbox balances and transactions are not reset; do that by hand in PayPal&rsquo;s developer dashboard.</div>
+              <div className={s.simNote}>Sample data only. To start over, use Reset demo data in Settings.</div>
             </div>
           </aside>
         </div>
