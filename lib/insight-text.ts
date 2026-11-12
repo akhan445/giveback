@@ -31,6 +31,6 @@ export function reserveCard(r: ReservePlan, money: (c: number) => string): Card 
     id: 'reserve', tag: 'Smoothing', tone: 'red',
     title: `Set aside ${r.percent}% of ${names(r.peakMonths)} to cover ${names(r.lowMonths)}`,
     body: `${names(r.lowMonths)} run about ${money(r.monthlyGapCents)} a month below your average month. ${r.percent}% of your peak months is about ${money(r.reserveCents)} a year, which covers ${Math.round(r.coverage * 100)}% of that gap.`,
-    action: 'Create reserve plan',
+    action: 'Discuss reserve plan',
   };
 }

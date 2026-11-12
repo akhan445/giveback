@@ -15,7 +15,7 @@ export async function simulateMonth(): Promise<number> {
   return n;
 }
 
-/** Clears payments, settlements, cashback payouts, sponsor invoices and Counter items, then restores the original seed. */
+/** Clears payments, settlements, cashback payouts, sponsor invoices, Counter items and the saved AI chat and summary, then restores the original seed. */
 export async function resetDemo(): Promise<void> {
   const client = await db().connect();
   try {
@@ -26,6 +26,8 @@ export async function resetDemo(): Promise<void> {
     await client.query('DELETE FROM sponsor_invoices');
     await client.query('DELETE FROM sponsors');
     await client.query('DELETE FROM payments');
+    await client.query('DELETE FROM chat_messages');
+    await client.query('DELETE FROM ai_summaries');
     await client.query('DELETE FROM catalog_items');
     await client.query('UPDATE org_settings SET counter_title = $1, updated_at = now() WHERE id = 1', [DEFAULT_COUNTER_TITLE]);
     await seedPayments(client);

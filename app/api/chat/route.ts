@@ -1,67 +1,37 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { aiModels, openAiKey } from '@/lib/ai';
-import { runTool, TOOL_DEFINITIONS, type InvoiceProposal } from '@/lib/chat-tools';
-import { listSponsors } from '@/lib/sponsors';
-import { getOverview } from '@/lib/overview';
-import { ORG_TYPES } from '@/lib/org';
+import { clearChat, listChat, saveChatTurn } from '@/lib/ai-store';
+import { AssistantUnavailable, runAssistant } from '@/lib/assistant';
+import { allow, clientKey } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const bodySchema = z.object({
-  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().min(1).max(2000) })).min(1).max(30),
+  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().min(1).max(4000) })).min(1).max(30),
 });
-const MAX_STEPS = 5;
-type OutputItem = { type: string; name?: string; arguments?: string; call_id?: string; content?: { type: string; text?: string }[] };
+
+/** The saved conversation, so the director can leave and come back. */
+export async function GET() {
+  return NextResponse.json({ messages: await listChat().catch(() => []) });
+}
+
+export async function DELETE() {
+  await clearChat();
+  return NextResponse.json({ ok: true });
+}
 
 export async function POST(req: Request) {
-  const key = openAiKey();
-  if (!key) return NextResponse.json({ error: 'The assistant is not configured: set AG_STUDIO_OPENAI_API_KEY.' }, { status: 503 });
+  if (!allow(`chat:${clientKey(req.headers)}`, Date.now(), 30, 10 * 60_000)) return NextResponse.json({ error: 'Too many questions. Try again in a few minutes.' }, { status: 429 });
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success || parsed.data.messages.at(-1)?.role !== 'user') return NextResponse.json({ error: 'invalid request' }, { status: 400 });
-
-  const today = new Date();
-  const [ov, sponsors] = await Promise.all([getOverview(today), listSponsors().catch(() => [])]);
-  const proposals: InvoiceProposal[] = [];
-  const instructions = [
-    `You are giveback's assistant for ${ov.org.name}, a ${ORG_TYPES[ov.org.orgType]}${ov.org.tradition ? ` (${ov.org.tradition} tradition)` : ''}. Today is ${today.toISOString().slice(0, 10)}. Money is in ${ov.currency}.`,
-    'Answer with the tools: every figure must come from a tool result, never from memory or guesses. If a tool has no data for the question, say so.',
-    'Be brief: a direct answer first, then at most two supporting facts. Plain text, no markdown tables. Round to whole dollars in prose.',
-    'Only suggest campaigns and ideas that fit this organization type and its own history. Never suggest something from a different kind of organization.',
-    'You cannot move money or send anything yourself. To invoice a sponsor, call propose_sponsor_invoice: it only prepares a card the director must confirm. After it, say the invoice is prepared below and needs their Confirm click; never say it was sent. When money is short (for example rent), check get_sponsor_pledges and when you recommend invoicing a pledge that is not yet invoiced, ALSO call propose_sponsor_invoice for it in the same turn so the director gets the confirmation card.',
-    'You can only read data and write suggestions. You cannot create, save, edit or schedule anything: no campaigns, no reserve plans, no settings, no dashboard changes. A "draft campaign" or "reserve plan" is text in this chat only. Say so plainly (for example "Here is a draft; nothing is saved"), never say you created, changed or updated something, and if asked to change a plan (such as a different percent), do not claim it was applied: explain that the dashboard card shows the percent from the data and that you can only discuss other percentages as rough estimates, labelled as estimates.',
-    'The cashback and pricing advantage are simulated in this sandbox; mention that only if asked.',
-  ].join('\n');
-
-  const model = aiModels()[0];
-  const call = async (payload: Record<string, unknown>) => {
-    const r = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, instructions, tools: TOOL_DEFINITIONS, max_output_tokens: 4000, ...payload }), signal: req.signal,
-    });
-    if (!r.ok) throw new Error(`model error ${r.status}`);
-    return (await r.json()) as { id: string; output: OutputItem[] };
-  };
-
   try {
-    let res = await call({ input: parsed.data.messages.map((m) => ({ role: m.role, content: m.text })) });
-    for (let step = 0; step < MAX_STEPS; step++) {
-      const calls = res.output.filter((o) => o.type === 'function_call');
-      if (!calls.length) break;
-      const outputs = calls.map((c) => {
-        let args: Record<string, unknown> = {};
-        try { args = JSON.parse(c.arguments ?? '{}'); } catch { /* bad arguments: the tool reports it */ }
-        const out = runTool(c.name ?? '', args, ov, today, sponsors);
-        const prop = (out as { proposal?: InvoiceProposal }).proposal;
-        if (prop && !proposals.some((p) => p.sponsorId === prop.sponsorId)) proposals.push(prop);
-        return { type: 'function_call_output', call_id: c.call_id, output: JSON.stringify(out) };
-      });
-      res = await call({ previous_response_id: res.id, input: outputs });
-    }
-    const reply = res.output.filter((o) => o.type === 'message').flatMap((o) => o.content ?? []).map((c) => c.text ?? '').join('').trim();
-    return NextResponse.json({ reply: reply || 'I could not put together an answer. Try rephrasing.', ...(proposals.length ? { proposals } : {}) });
+    const { reply, proposals } = await runAssistant(parsed.data.messages, { signal: req.signal });
+    const text = reply || 'I could not put together an answer. Try rephrasing.';
+    await saveChatTurn(parsed.data.messages.at(-1)!.text, text, proposals).catch((e) => console.error('[chat save]', e));
+    return NextResponse.json({ reply: text, ...(proposals.length ? { proposals } : {}) });
   } catch (e) {
+    if (e instanceof AssistantUnavailable) return NextResponse.json({ error: e.message }, { status: 503 });
     console.error('[chat]', e);
     return NextResponse.json({ error: 'The assistant is unavailable right now. Try again in a moment.' }, { status: 502 });
   }

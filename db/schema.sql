@@ -128,3 +128,17 @@ CREATE TABLE IF NOT EXISTS catalog_items (
   sort        INTEGER NOT NULL DEFAULT 0
 );
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS counter_title TEXT NOT NULL DEFAULT 'Riverside Community Bake Sale';
+
+-- Ask giveback: the saved conversation (one organization) and the AI summaries shown on the dashboard.
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         BIGSERIAL PRIMARY KEY,
+  role       TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  text       TEXT NOT NULL,
+  proposals  JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ai_summaries (
+  id         BIGSERIAL PRIMARY KEY,
+  body       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

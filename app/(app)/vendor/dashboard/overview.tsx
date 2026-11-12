@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TIERS } from '@/lib/cashback';
 import type { InvoiceProposal } from '@/lib/chat-tools';
+import type { SavedSummary } from '@/lib/ai-store';
 import type { SponsorRow } from '@/lib/sponsors';
 import { convertUsdCents } from '@/lib/currency';
 import { eventCard, reserveCard, type Card } from '@/lib/insight-text';
@@ -15,7 +16,7 @@ import styles from './overview.module.css';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export function Overview({ data, sponsors }: { data: OverviewData; sponsors: SponsorRow[] }) {
+export function Overview({ data, sponsors, summary }: { data: OverviewData; sponsors: SponsorRow[]; summary: SavedSummary | null }) {
   const router = useRouter();
   const fmt = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency }), [data.currency]);
   const fmt0 = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }), [data.currency]);
@@ -77,6 +78,7 @@ export function Overview({ data, sponsors }: { data: OverviewData; sponsors: Spo
 
         <div className={styles.cols}>
           <div className={styles.stack}>
+            <SummaryCard summary={summary} onDiscuss={askAbout} />
             <section className={styles.card}>
               <div className={styles.chartHead}><div className={styles.label}>Where your money goes · {monthName}</div><div className={styles.label} style={{ textTransform: 'none' }}>illustrative</div></div>
               <div style={{ marginTop: 6 }}>
@@ -167,14 +169,14 @@ export function Overview({ data, sponsors }: { data: OverviewData; sponsors: Spo
                 ))}
               </div>
             </div>
-            {!chatOpen && <Chat chat={chat} money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(true)} />}
+            {!chatOpen && <Chat chat={chat} sponsors={sponsors} money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(true)} />}
           </div>
         </div>
       </div>
 
       {chatOpen && (
         <aside className={styles.drawer}>
-          <Chat chat={chat} side money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(false)} />
+          <Chat chat={chat} sponsors={sponsors} side money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(false)} />
         </aside>
       )}
     </div>
@@ -292,12 +294,20 @@ function HistoryChart({ data, money0, onAsk }: { data: OverviewData; money0: (c:
 
 // --- Chat ---------------------------------------------------------------------------
 
-type Msg = { role: 'user' | 'assistant'; text: string; proposals?: InvoiceProposal[] };
-const SUGGESTIONS = ['What will August look like?', 'When should we run a campaign?', 'Can we cover the March venue rent?'];
+type Msg = { role: 'user' | 'assistant'; text: string; proposals?: InvoiceProposal[]; saved?: boolean };
+const SUGGESTIONS = ['Why was last month low?', 'Who are our supporters?', 'Can we cover the March venue rent?'];
 
 function useChat() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
+  // The conversation is saved on the server: load it so a director who left can pick up where they stopped.
+  useEffect(() => {
+    void fetch('/api/chat').then((r) => r.json()).then((j: { messages?: Msg[] }) => setMsgs((cur) => (cur.length ? cur : (j.messages ?? []).map((m) => ({ ...m, saved: true }))))).catch(() => undefined);
+  }, []);
+  async function clear() {
+    setMsgs([]);
+    await fetch('/api/chat', { method: 'DELETE' }).catch(() => undefined);
+  }
   async function send(raw: string) {
     const q = raw.trim();
     if (!q || busy) return;
@@ -311,24 +321,24 @@ function useChat() {
       setMsgs([...next, { role: 'assistant', text: 'I could not reach the assistant. Try again in a moment.' }]);
     } finally { setBusy(false); }
   }
-  return { msgs, busy, send };
+  return { msgs, busy, send, clear };
 }
 
-function Chat({ chat, side, money, onSent, onExpand }: { chat: ReturnType<typeof useChat>; side?: boolean; money: (c: number) => string; onSent: () => void; onExpand: () => void }) {
-  const { msgs, busy, send } = chat;
+function Chat({ chat, sponsors, side, money, onSent, onExpand }: { chat: ReturnType<typeof useChat>; sponsors: SponsorRow[]; side?: boolean; money: (c: number) => string; onSent: () => void; onExpand: () => void }) {
+  const { msgs, busy, send, clear } = chat;
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy]);
 
   return (
     <div className={`${styles.chat} ${side ? styles.side : ''}`}>
-      <div className={styles.chatHead}><span className={styles.label}>Ask giveback</span><button onClick={onExpand}>{side ? 'Minimize −' : 'Expand +'}</button></div>
+      <div className={styles.chatHead}><span className={styles.label}>Ask giveback</span><span>{msgs.length > 0 && <button onClick={() => void clear()}>New chat</button>}{' '}<button onClick={onExpand}>{side ? 'Minimize −' : 'Expand +'}</button></span></div>
       <div className={styles.msgs}>
-        {msgs.length === 0 && <div className={styles.a}>Ask about cash flow, campaigns or sponsors. I use your payment history and never move money without your confirmation.</div>}
+        {msgs.length === 0 && <div className={styles.a}>Ask me to explain your numbers: why a month was low, who gives, what to expect, what sponsors still owe. Our conversation is saved, so you can come back and keep digging. I only read your data and never move money without your confirmation.</div>}
         {msgs.map((m, i) => (
           <div key={i} style={{ display: 'contents' }}>
             <div className={m.role === 'user' ? styles.q : styles.a}>{m.text}</div>
-            {m.proposals?.map((p) => <ProposalCard key={p.sponsorId} p={p} money={money} onSent={onSent} />)}
+            {m.proposals?.filter((p) => !(m.saved && sponsors.find((x) => x.id === p.sponsorId)?.invoice)).map((p) => <ProposalCard key={p.sponsorId} p={p} money={money} onSent={onSent} />)}
           </div>
         ))}
         {busy && <div className={styles.a}>Thinking…</div>}
@@ -416,5 +426,37 @@ function ProposalCard({ p, money, onSent }: { p: InvoiceProposal; money: (c: num
         </div>
       )}
     </div>
+  );
+}
+
+// --- AI summary (saved in the database) ------------------------------------------------
+
+function SummaryCard({ summary, onDiscuss }: { summary: SavedSummary | null; onDiscuss: (t: string) => void }) {
+  const [cur, setCur] = useState(summary);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string>();
+  async function refresh() {
+    setBusy(true); setErr(undefined);
+    try {
+      const res = await fetch('/api/summary', { method: 'POST' });
+      const j = (await res.json()) as { summary?: SavedSummary; error?: string };
+      if (!res.ok || !j.summary) throw new Error(j.error ?? 'Could not write a summary.');
+      setCur(j.summary);
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <section className={styles.card}>
+      <div className={styles.chartHead}>
+        <div className={styles.label}>AI summary</div>
+        <div className={styles.label} style={{ textTransform: 'none' }}>{cur ? `saved ${new Date(cur.createdAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'not written yet'}</div>
+      </div>
+      {cur ? <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.55, marginTop: 8 }}>{cur.body}</div>
+        : <div className={styles.sub} style={{ marginTop: 8 }}>Write a short summary of your month from your own data. It is saved here, and you can dig deeper in Ask giveback.</div>}
+      {err && <div className={styles.sub} style={{ color: 'var(--red, #9b1c1c)', marginTop: 6 }} role="alert">{err}</div>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button className={styles.btn} disabled={busy} onClick={() => void refresh()}>{busy ? 'Writing…' : cur ? 'Refresh summary' : 'Write summary'}</button>
+        {cur && <button className={styles.link} onClick={() => onDiscuss('Let us dig into the saved summary. What stands out and what should I do first?')}>Discuss this</button>}
+      </div>
+    </section>
   );
 }

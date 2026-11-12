@@ -13,6 +13,11 @@ export const TOOL_DEFINITIONS = [
   { type: 'function', name: 'get_year_projection', description: 'Where this calendar year is projected to land, with the projected total per remaining month.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   { type: 'function', name: 'get_opportunities', description: 'Upcoming calendar opportunities that fit this organization type, plus the smoothing reserve plan, with numbers from its own history.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   {
+    type: 'function', name: 'get_payment_breakdown',
+    description: 'Who gives and how, over the last N days: donations vs sales, share of supporters covering fees, anonymous share, top supporter locations and busiest weekdays (counts and shares).',
+    parameters: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 730 } }, additionalProperties: false },
+  },
+  {
     type: 'function', name: 'check_can_cover',
     description: 'Whether expected giving in a given month would cover an expense (for example rent), based on the same month in earlier years.',
     parameters: { type: 'object', properties: { month: { type: 'integer', minimum: 1, maximum: 12 }, expense_dollars: { type: 'number', minimum: 0 } }, required: ['month', 'expense_dollars'], additionalProperties: false },
