@@ -17,9 +17,9 @@ Everything is PayPal **sandbox**. Sign in at [sandbox.paypal.com](https://www.sa
 
 | Role | Email | Password |
 |---|---|---|
-| Supporter (personal): **use this to pay** | `sb-0he9w53817163@personal.example.com` | `ADD_PASSWORD_HERE` |
-| Nonprofit (business): receives money | `sb-kxj6f53815421@business.example.com` | `ADD_PASSWORD_HERE` |
-| giveback platform (business) | `giveback@business.example.com` | `ADD_PASSWORD_HERE` |
+| Supporter (personal): **use this to pay** | `sb-0he9w53817163@personal.example.com` | `SsC[|p!3` |
+| Nonprofit (business): receives money | `sb-kxj6f53815421@business.example.com` | `1B-u@IHU` |
+| giveback platform (business) | `giveback@business.example.com` | `z&rgCS4F` |
 
 **A 3-minute tour**
 1. Open the **Counter**, add a few items and press *Pay on this device* (or scan the QR code with a phone). Pay with the supporter account. The PAID stamp appears and the **Dashboard** updates.
