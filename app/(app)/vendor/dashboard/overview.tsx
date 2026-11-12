@@ -351,6 +351,15 @@ const CHIP: Record<string, { label: string; cls: string }> = {
 const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '');
 
 function SponsorInvoices({ sponsors, money, onAsk }: { sponsors: SponsorRow[]; money: (c: number) => string; onAsk: (t: string) => void }) {
+  const router = useRouter();
+  const [copied, setCopied] = useState<number | null>(null);
+  // While an invoice is open, re-read the page now and then: the server asks PayPal, so a payment shows up here by itself.
+  const open = sponsors.some((s) => s.invoice?.status === 'SENT');
+  useEffect(() => {
+    if (!open) return;
+    const t = setInterval(() => router.refresh(), 8000);
+    return () => clearInterval(t);
+  }, [open, router]);
   if (!sponsors.length) return null;
   return (
     <section className={styles.card}>
@@ -363,13 +372,19 @@ function SponsorInvoices({ sponsors, money, onAsk }: { sponsors: SponsorRow[]; m
             <div className={styles.spAmt}>{money(s.pledgeCents)}</div>
             <div>{chip ? <span className={`${styles.spChip} ${styles[chip.cls]}`}>{chip.label}{s.invoice?.status === 'SENT' ? ` · ${shortDate(s.invoice.sentAt)}` : s.invoice?.status === 'PAID' ? ` · ${shortDate(s.invoice.paidAt)}` : ''}</span> : <span className={`${styles.spChip} ${styles.spDue}`}>Not invoiced</span>}</div>
             <div className={styles.spAct}>
-              {s.invoice?.link && s.invoice.status !== 'PAID' && <a href={s.invoice.link} target="_blank" rel="noopener" className={styles.link}>PayPal ↗</a>}
+              {s.invoice?.status === 'PAID' && <a href={`/api/sponsors/${s.id}/receipt`} target="_blank" rel="noopener noreferrer" className={styles.link}>Receipt PDF ↗</a>}
+              {s.invoice?.link && s.invoice.status === 'SENT' && (
+                <>
+                  <button className={styles.link} onClick={() => { void navigator.clipboard?.writeText(s.invoice!.link!); setCopied(s.id); setTimeout(() => setCopied(null), 2000); }}>{copied === s.id ? 'Copied' : 'Copy pay link'}</button>
+                  {' '}<a href={s.invoice.link} target="_blank" rel="noopener" className={styles.link}>Open ↗</a>
+                </>
+              )}
               {!s.invoice && <button className={styles.link} onClick={() => onAsk(`Invoice ${s.name} for their pledge`)}>Ask AI to invoice</button>}
             </div>
           </div>
         );
       })}
-      <div className={styles.sub} style={{ marginTop: 8 }}>Status updates from PayPal. The AI only proposes an invoice; it is sent when you confirm.</div>
+      <div className={styles.sub} style={{ marginTop: 8 }}>PayPal emails the sponsor a Pay button (copy the link to send it yourself). This list updates by itself when they pay, and a receipt appears. The AI only proposes an invoice; it is sent when you confirm.</div>
     </section>
   );
 }

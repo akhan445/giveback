@@ -14,7 +14,7 @@ import { decimalFromCents, dueDateFor, statusFromPayPal, type SponsorInvoiceStat
 
 export type SponsorRow = {
   id: number; name: string; email: string; pledgeCents: number; currency: string; dueDate: string;
-  invoice: { id: number; status: SponsorInvoiceStatus; link: string | null; invoiceNumber: string | null; sentAt: string | null; paidAt: string | null } | null;
+  invoice: { id: number; amountCents: number; status: SponsorInvoiceStatus; link: string | null; invoiceNumber: string | null; sentAt: string | null; paidAt: string | null } | null;
 };
 
 // The invoice goes to a sandbox personal account so the whole loop can be opened and paid in the demo.
@@ -93,14 +93,14 @@ export async function listSponsors(): Promise<SponsorRow[]> {
   await refreshOpen();
   const { rows } = await db().query(
     `SELECT s.id, s.name, s.email, s.pledge_cents, s.currency, to_char(s.due_date, 'YYYY-MM-DD') AS due_date,
-            i.id AS inv_id, i.status, i.link, i.invoice_number, i.sent_at, i.paid_at
+            i.id AS inv_id, i.amount_cents AS inv_amount, i.status, i.link, i.invoice_number, i.sent_at, i.paid_at
        FROM sponsors s
        LEFT JOIN LATERAL (SELECT * FROM sponsor_invoices WHERE sponsor_id = s.id AND status IN ('PENDING','SENT','PAID') ORDER BY id DESC LIMIT 1) i ON true
       ORDER BY s.due_date, s.id`,
   );
   return rows.map((r) => ({
     id: Number(r.id), name: r.name, email: r.email, pledgeCents: r.pledge_cents, currency: r.currency, dueDate: r.due_date,
-    invoice: r.inv_id ? { id: Number(r.inv_id), status: r.status, link: r.link, invoiceNumber: r.invoice_number, sentAt: r.sent_at?.toISOString?.() ?? null, paidAt: r.paid_at?.toISOString?.() ?? null } : null,
+    invoice: r.inv_id ? { id: Number(r.inv_id), amountCents: r.inv_amount, status: r.status, link: r.link, invoiceNumber: r.invoice_number, sentAt: r.sent_at?.toISOString?.() ?? null, paidAt: r.paid_at?.toISOString?.() ?? null } : null,
   }));
 }
 
