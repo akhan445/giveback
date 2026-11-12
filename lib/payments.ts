@@ -5,6 +5,7 @@ import { db } from './db';
 import { parseOrderTag, platformFeeCents } from './fees';
 import { decimalToCents } from './money';
 import { applyPayoutStatus } from './payouts';
+import { applyInvoiceStatus } from './sponsors';
 import { runAfterResponse, settleCapture } from './settlements';
 
 export type PaymentInput = {
@@ -60,6 +61,8 @@ type WebhookEvent = {
     batch_header?: { payout_batch_id?: string; batch_status?: string };
     payout_batch_id?: string;
     transaction_status?: string;
+    // Invoicing events carry the invoice under `invoice`.
+    invoice?: { id?: string; status?: string };
   };
 };
 
@@ -99,6 +102,10 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
       await applyPayoutStatus(r.batch_header.payout_batch_id, r.batch_header.batch_status, client);
     } else if (event.event_type.startsWith('PAYMENT.PAYOUTS-ITEM.') && r?.payout_batch_id && r.transaction_status) {
       await applyPayoutStatus(r.payout_batch_id, r.transaction_status, client);
+    }
+    if (event.event_type.startsWith('INVOICING.INVOICE.') && r?.invoice?.id) {
+      const status = event.event_type.endsWith('.PAID') ? 'PAID' : event.event_type.endsWith('.CANCELLED') ? 'CANCELLED' : (r.invoice.status ?? 'SENT');
+      await applyInvoiceStatus(r.invoice.id, status, client);
     }
     await client.query('COMMIT');
     // The vendor is paid after the response, never while PayPal (or the supporter) waits.

@@ -1,8 +1,10 @@
 import { connection } from 'next/server';
 import { getOverview } from '@/lib/overview';
+import { listSponsors } from '@/lib/sponsors';
 import { Overview } from './overview';
 
 export default async function OverviewPage() {
   await connection(); // live data: render per request
-  return <Overview data={await getOverview()} />;
+  const [data, sponsors] = await Promise.all([getOverview(), listSponsors().catch(() => [])]);
+  return <Overview data={data} sponsors={sponsors} />;
 }

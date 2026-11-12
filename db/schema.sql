@@ -91,3 +91,31 @@ CREATE TABLE IF NOT EXISTS settlements (
 
 -- PayPal's fee for paying the vendor (Payouts), bundled into the admin fee. Set when a payment is settled.
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS payout_fee_cents INTEGER NOT NULL DEFAULT 0 CHECK (payout_fee_cents >= 0);
+
+-- Sponsors the AI can propose invoicing, and the PayPal invoices sent to them (Invoicing API).
+CREATE TABLE IF NOT EXISTS sponsors (
+  id           BIGSERIAL PRIMARY KEY,
+  name         TEXT NOT NULL UNIQUE,
+  email        TEXT NOT NULL,
+  pledge_cents INTEGER NOT NULL CHECK (pledge_cents > 0),
+  currency     TEXT NOT NULL,
+  due_date     DATE NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS sponsor_invoices (
+  id                BIGSERIAL PRIMARY KEY,
+  sponsor_id        BIGINT NOT NULL REFERENCES sponsors(id),
+  amount_cents      INTEGER NOT NULL CHECK (amount_cents > 0),
+  currency          TEXT NOT NULL,
+  status            TEXT NOT NULL DEFAULT 'PENDING', -- PENDING | SENT | PAID | CANCELLED | FAILED
+  paypal_invoice_id TEXT UNIQUE,
+  invoice_number    TEXT,
+  link              TEXT,
+  error             TEXT,
+  sent_at           TIMESTAMPTZ,
+  paid_at           TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- One live invoice per sponsor: a double click or retry can never send two.
+CREATE UNIQUE INDEX IF NOT EXISTS sponsor_invoices_one_live ON sponsor_invoices (sponsor_id) WHERE status IN ('PENDING', 'SENT', 'PAID');

@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TIERS } from '@/lib/cashback';
+import type { InvoiceProposal } from '@/lib/chat-tools';
+import type { SponsorRow } from '@/lib/sponsors';
 import { convertUsdCents } from '@/lib/currency';
 import { eventCard, reserveCard, type Card } from '@/lib/insight-text';
 import type { Overview as OverviewData } from '@/lib/overview';
@@ -12,7 +15,8 @@ import styles from './overview.module.css';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export function Overview({ data }: { data: OverviewData }) {
+export function Overview({ data, sponsors }: { data: OverviewData; sponsors: SponsorRow[] }) {
+  const router = useRouter();
   const fmt = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency }), [data.currency]);
   const fmt0 = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }), [data.currency]);
   const money = (c: number) => fmt.format(c / 100);
@@ -122,6 +126,8 @@ export function Overview({ data }: { data: OverviewData }) {
               <div className={styles.vs}>The cashback advantage: you get back an average of <b className={styles.good}>{money(data.cashbackSummary.perPaymentCents)}</b> per transaction, <b className={styles.good}>{money(data.cashbackSummary.per100Cents)}</b> on every $100 raised. A typical platform gives back $0, so your fees fall from {pct(typicalBp)} to <b>{pct(m.effectiveFeeBp)}</b>.</div>
             </section>
 
+            <SponsorInvoices sponsors={sponsors} money={money} onAsk={askAbout} />
+
             <HistoryChart data={data} money0={money0} onAsk={askAbout} />
           </div>
 
@@ -161,14 +167,14 @@ export function Overview({ data }: { data: OverviewData }) {
                 ))}
               </div>
             </div>
-            {!chatOpen && <Chat chat={chat} onExpand={() => setChatOpen(true)} />}
+            {!chatOpen && <Chat chat={chat} money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(true)} />}
           </div>
         </div>
       </div>
 
       {chatOpen && (
         <aside className={styles.drawer}>
-          <Chat chat={chat} side onExpand={() => setChatOpen(false)} />
+          <Chat chat={chat} side money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(false)} />
         </aside>
       )}
     </div>
@@ -286,7 +292,7 @@ function HistoryChart({ data, money0, onAsk }: { data: OverviewData; money0: (c:
 
 // --- Chat ---------------------------------------------------------------------------
 
-type Msg = { role: 'user' | 'assistant'; text: string };
+type Msg = { role: 'user' | 'assistant'; text: string; proposals?: InvoiceProposal[] };
 const SUGGESTIONS = ['What will August look like?', 'When should we run a campaign?', 'Can we cover the March venue rent?'];
 
 function useChat() {
@@ -299,8 +305,8 @@ function useChat() {
     setMsgs(next); setBusy(true);
     try {
       const res = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: next }) });
-      const j = (await res.json()) as { reply?: string; error?: string };
-      setMsgs([...next, { role: 'assistant', text: j.reply ?? j.error ?? 'Something went wrong.' }]);
+      const j = (await res.json()) as { reply?: string; error?: string; proposals?: InvoiceProposal[] };
+      setMsgs([...next, { role: 'assistant', text: j.reply ?? j.error ?? 'Something went wrong.', proposals: j.proposals }]);
     } catch {
       setMsgs([...next, { role: 'assistant', text: 'I could not reach the assistant. Try again in a moment.' }]);
     } finally { setBusy(false); }
@@ -308,7 +314,7 @@ function useChat() {
   return { msgs, busy, send };
 }
 
-function Chat({ chat, side, onExpand }: { chat: ReturnType<typeof useChat>; side?: boolean; onExpand: () => void }) {
+function Chat({ chat, side, money, onSent, onExpand }: { chat: ReturnType<typeof useChat>; side?: boolean; money: (c: number) => string; onSent: () => void; onExpand: () => void }) {
   const { msgs, busy, send } = chat;
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -319,7 +325,12 @@ function Chat({ chat, side, onExpand }: { chat: ReturnType<typeof useChat>; side
       <div className={styles.chatHead}><span className={styles.label}>Ask giveback</span><button onClick={onExpand}>{side ? 'Minimize −' : 'Expand +'}</button></div>
       <div className={styles.msgs}>
         {msgs.length === 0 && <div className={styles.a}>Ask about cash flow, campaigns or sponsors. I use your payment history and never move money without your confirmation.</div>}
-        {msgs.map((m, i) => <div key={i} className={m.role === 'user' ? styles.q : styles.a}>{m.text}</div>)}
+        {msgs.map((m, i) => (
+          <div key={i} style={{ display: 'contents' }}>
+            <div className={m.role === 'user' ? styles.q : styles.a}>{m.text}</div>
+            {m.proposals?.map((p) => <ProposalCard key={p.sponsorId} p={p} money={money} onSent={onSent} />)}
+          </div>
+        ))}
         {busy && <div className={styles.a}>Thinking…</div>}
         <div ref={end} />
       </div>
@@ -328,6 +339,67 @@ function Chat({ chat, side, onExpand }: { chat: ReturnType<typeof useChat>; side
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask about cash flow, campaigns, sponsors…" aria-label="Ask giveback" />
         <button className={`${styles.btn} ${styles.p}`} disabled={busy || !text.trim()}>Send</button>
       </form>
+    </div>
+  );
+}
+
+// --- Sponsor invoices ---------------------------------------------------------------
+
+const CHIP: Record<string, { label: string; cls: string }> = {
+  SENT: { label: 'Sent', cls: 'spSent' }, PAID: { label: 'Paid', cls: 'spPaid' }, PENDING: { label: 'Sending…', cls: 'spSent' },
+};
+const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '');
+
+function SponsorInvoices({ sponsors, money, onAsk }: { sponsors: SponsorRow[]; money: (c: number) => string; onAsk: (t: string) => void }) {
+  if (!sponsors.length) return null;
+  return (
+    <section className={styles.card}>
+      <div className={styles.chartHead}><div className={styles.label}>Sponsor invoices</div><div className={styles.label} style={{ textTransform: 'none' }}>sent through PayPal Invoicing</div></div>
+      {sponsors.map((s) => {
+        const chip = s.invoice ? CHIP[s.invoice.status] : null;
+        return (
+          <div key={s.id} className={styles.spRow}>
+            <div><b>{s.name}</b><div className={styles.sub}>Pledged {money(s.pledgeCents)} · due {s.dueDate}</div></div>
+            <div className={styles.spAmt}>{money(s.pledgeCents)}</div>
+            <div>{chip ? <span className={`${styles.spChip} ${styles[chip.cls]}`}>{chip.label}{s.invoice?.status === 'SENT' ? ` · ${shortDate(s.invoice.sentAt)}` : s.invoice?.status === 'PAID' ? ` · ${shortDate(s.invoice.paidAt)}` : ''}</span> : <span className={`${styles.spChip} ${styles.spDue}`}>Not invoiced</span>}</div>
+            <div className={styles.spAct}>
+              {s.invoice?.link && <a href={s.invoice.link} target="_blank" rel="noopener" className={styles.link}>PayPal ↗</a>}
+              {!s.invoice && <button className={styles.link} onClick={() => onAsk(`Invoice ${s.name} for their pledge`)}>Ask AI to invoice</button>}
+            </div>
+          </div>
+        );
+      })}
+      <div className={styles.sub} style={{ marginTop: 8 }}>Status updates from PayPal. The AI only proposes an invoice; it is sent when you confirm.</div>
+    </section>
+  );
+}
+
+function ProposalCard({ p, money, onSent }: { p: InvoiceProposal; money: (c: number) => string; onSent: () => void }) {
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'cancelled'>('idle');
+  const [error, setError] = useState<string>();
+  async function confirm() {
+    setState('sending'); setError(undefined);
+    try {
+      const res = await fetch(`/api/sponsors/${p.sponsorId}/invoice`, { method: 'POST' });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(j.error ?? 'Could not send the invoice');
+      setState('sent'); onSent();
+    } catch (e) { setError((e as Error).message); setState('idle'); }
+  }
+  return (
+    <div className={styles.prop}>
+      <div className={styles.label} style={{ color: 'var(--a)' }}>{state === 'sent' ? 'Invoice sent' : 'Proposed action · needs your confirmation'}</div>
+      <div className={styles.propTitle}>Invoice {p.name} {money(p.amountCents)}</div>
+      <div className={styles.sub}>Due {p.dueDate} · sent through PayPal Invoicing to {p.email}</div>
+      {error && <div className={styles.sub} style={{ color: 'var(--red, #9b1c1c)', marginTop: 6 }} role="alert">{error}</div>}
+      {state === 'sent' && <div className={styles.sub} style={{ marginTop: 6 }}>Sent. It shows under Sponsor invoices and updates when it is paid.</div>}
+      {state === 'cancelled' && <div className={styles.sub} style={{ marginTop: 6 }}>Cancelled. Nothing was sent.</div>}
+      {(state === 'idle' || state === 'sending') && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button className={`${styles.btn} ${styles.p}`} style={{ flex: 1 }} disabled={state === 'sending'} onClick={() => void confirm()}>{state === 'sending' ? 'Sending…' : 'Confirm and send'}</button>
+          <button className={styles.btn} disabled={state === 'sending'} onClick={() => setState('cancelled')}>Cancel</button>
+        </div>
+      )}
     </div>
   );
 }

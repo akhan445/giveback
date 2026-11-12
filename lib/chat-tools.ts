@@ -2,6 +2,7 @@
 // dashboard cards, so the chat and the cards can never disagree. Nothing here moves money.
 import { fullMonths, growthFactor, typicalMonth, type MonthlyTotal } from './insights';
 import type { Overview } from './overview';
+import type { SponsorRow } from './sponsors';
 
 const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const dollars = (c: number) => Math.round(c) / 100;
@@ -16,9 +17,17 @@ export const TOOL_DEFINITIONS = [
     description: 'Whether expected giving in a given month would cover an expense (for example rent), based on the same month in earlier years.',
     parameters: { type: 'object', properties: { month: { type: 'integer', minimum: 1, maximum: 12 }, expense_dollars: { type: 'number', minimum: 0 } }, required: ['month', 'expense_dollars'], additionalProperties: false },
   },
+  { type: 'function', name: 'get_sponsor_pledges', description: 'The sponsors who pledged support: amount, due date and whether an invoice was sent or paid. Use it for questions about sponsors, expected income or what is still owed.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
+  {
+    type: 'function', name: 'propose_sponsor_invoice',
+    description: 'Prepare (NOT send) a PayPal invoice for one sponsor pledge that has not been invoiced yet. The director sees a card and must click Confirm before anything is sent. Never claim it was sent.',
+    parameters: { type: 'object', properties: { sponsor_id: { type: 'integer' } }, required: ['sponsor_id'], additionalProperties: false },
+  },
 ] as const;
 
-export function runTool(name: string, args: Record<string, unknown>, ov: Overview, today: Date): unknown {
+export type InvoiceProposal = { sponsorId: number; name: string; amountCents: number; currency: string; dueDate: string; email: string };
+
+export function runTool(name: string, args: Record<string, unknown>, ov: Overview, today: Date, sponsors: SponsorRow[] = []): unknown {
   switch (name) {
     case 'get_summary':
       return {
@@ -45,6 +54,19 @@ export function runTool(name: string, args: Record<string, unknown>, ov: Overvie
       };
     case 'check_can_cover':
       return checkCanCover(ov.monthly, Number(args.month), Number(args.expense_dollars) * 100, today, ov.currency);
+    case 'get_sponsor_pledges':
+      return {
+        currency: ov.currency,
+        sponsors: sponsors.map((x) => ({ sponsor_id: x.id, name: x.name, pledge: dollars(x.pledgeCents), due_date: x.dueDate, invoice_status: x.invoice?.status ?? 'NOT_INVOICED' })),
+        not_yet_invoiced_total: dollars(sponsors.filter((x) => !x.invoice).reduce((a, x) => a + x.pledgeCents, 0)),
+      };
+    case 'propose_sponsor_invoice': {
+      const sp = sponsors.find((x) => x.id === Number(args.sponsor_id));
+      if (!sp) return { error: 'unknown sponsor_id; call get_sponsor_pledges first' };
+      if (sp.invoice) return { error: `${sp.name} already has an invoice (${sp.invoice.status})` };
+      const proposal: InvoiceProposal = { sponsorId: sp.id, name: sp.name, amountCents: sp.pledgeCents, currency: sp.currency, dueDate: sp.dueDate, email: sp.email };
+      return { proposal, status: 'awaiting_director_confirmation', note: 'Tell the director the invoice is prepared below and needs their Confirm click. It has NOT been sent.' };
+    }
     default:
       return { error: `unknown tool ${name}` };
   }

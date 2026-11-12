@@ -110,3 +110,16 @@
 .barWrap .bar { margin:8px 0 8px; cursor:default; }
 .barWrap:hover .bar i.f, .barWrap:focus-visible .bar i.f { filter:brightness(1.12); }
 .barTip { position:absolute; bottom:calc(100% + 4px); transform:translateX(-50%); background:var(--ink); color:var(--ai); font:500 12px var(--gb-mono),monospace; padding:8px 12px; border-radius:8px; white-space:nowrap; z-index:5; pointer-events:none; }
+
+/* sponsor invoices + proposal card */
+.spRow { display:grid; grid-template-columns:1.4fr 1fr 1.1fr 150px; gap:10px; align-items:center; padding:11px 0; border-bottom:1px dashed var(--line); font-size:14px; }
+.spRow:last-of-type { border-bottom:0; }
+.spAmt { font-family:var(--gb-mono),monospace; }
+.spAct { text-align:right; white-space:nowrap; }
+.spChip { font:500 10.5px var(--gb-mono),monospace; letter-spacing:.06em; text-transform:uppercase; padding:4px 9px; border-radius:99px; white-space:nowrap; }
+.spSent { background:#fff3d6; color:#7a5a12; }
+.spPaid { background:var(--soft); color:var(--a); }
+.spDue { background:#f1e0dc; color:#9b1c1c; }
+.prop { align-self:flex-start; width:92%; border:1.5px solid var(--a); border-radius:12px; background:var(--surf); padding:14px; }
+.propTitle { font-weight:700; font-size:16px; margin:4px 0 2px; }
+@media (max-width:720px) { .spRow { grid-template-columns:1fr 1fr; } .spAct { text-align:left; } }

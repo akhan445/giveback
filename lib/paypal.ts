@@ -256,7 +256,10 @@ async function post<T>(path: string, body: unknown, requestId?: string, creds: C
       body: JSON.stringify(body),
       cache: 'no-store',
     });
-    if (res.ok) return (await res.json()) as T;
+    if (res.ok) {
+      const text = await res.text(); // some endpoints (invoice send) answer 202 with a small or empty body
+      return (text ? JSON.parse(text) : {}) as T;
+    }
     if (res.status === 401 && attempt === 1) {
       tokens.delete(creds.id);
       continue;
@@ -267,6 +270,37 @@ async function post<T>(path: string, body: unknown, requestId?: string, creds: C
     }
     throw new PayPalApiError(res.status, path, await res.text());
   }
+}
+
+// --- Creating and sending an invoice (the vendor's merchant account invoices a sponsor) ---
+
+/** Creates a draft invoice and returns its id (PayPal answers with a link ending in the id). */
+export async function createInvoiceDraft(input: {
+  invoiceNumber: string; currency: string; amountValue: string; itemName: string; note: string; dueDate: string; recipientEmail: string; recipientName: string; requestId: string;
+}): Promise<string> {
+  const res = await post<{ href?: string; id?: string }>(
+    '/v2/invoicing/invoices',
+    {
+      detail: { invoice_number: input.invoiceNumber, currency_code: input.currency, note: input.note, payment_term: { term_type: 'DUE_ON_DATE_SPECIFIED', due_date: input.dueDate } },
+      primary_recipients: [{ billing_info: { business_name: input.recipientName, email_address: input.recipientEmail } }],
+      items: [{ name: input.itemName, quantity: '1', unit_amount: { currency_code: input.currency, value: input.amountValue } }],
+      configuration: { allow_tip: false },
+    },
+    input.requestId,
+  );
+  const id = res.id ?? res.href?.split('/').pop();
+  if (!id) throw new Error('PayPal did not return an invoice id');
+  return id;
+}
+
+/** Sends a draft invoice to the recipient by email. Returns the link PayPal gives for it, if any. */
+export async function sendInvoice(id: string, subject: string): Promise<string | null> {
+  const res = await post<{ href?: string }>(`/v2/invoicing/invoices/${encodeURIComponent(id)}/send`, { subject, send_to_invoicer: false, send_to_recipient: true });
+  return res.href ?? null;
+}
+
+export async function getInvoiceById(id: string): Promise<Invoice> {
+  return get<Invoice>(`/v2/invoicing/invoices/${encodeURIComponent(id)}`);
 }
 
 export type CaptureResult = {
