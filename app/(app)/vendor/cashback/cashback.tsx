@@ -90,7 +90,7 @@ export function Cashback({ account: a }: { account: CashbackAccount }) {
             <div className={s.headline}>Your volume earned you <span className={base.good}>{money(t.freeMoneyCents)}</span> in free money.</div>
             <div className={s.flow}>
               <div className={s.box}><div className={base.label}>Raised</div><b>{money(t.volumeCents)}</b></div><span className={s.arrow}>→</span>
-              <div className={s.box}><div className={base.label}>Admin fee</div><b className={s.neg}>−{money(t.feeCents)}</b></div><span className={s.arrow}>→</span>
+              <div className={`${s.box} ${s.fee}`}><div className={base.label}>Admin fee</div><b className={s.neg}>−{money(t.feeCents)}</b></div><span className={s.arrow}>→</span>
               <div className={s.box}><div className={base.label}>Cashback</div><b className={base.good}>+{money(t.cashbackCents)}</b></div><span className={s.arrow}>→</span>
               <div className={`${s.box} ${s.keep}`}><div className={base.label}>You keep</div><b>{money(t.keepCents)}</b></div>
             </div>

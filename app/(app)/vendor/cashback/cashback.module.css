@@ -10,6 +10,12 @@
 .box { border:1px solid var(--line); border-radius:14px; padding:10px 14px; background:var(--surf); min-width:96px; }
 .box b { display:block; font:500 18px var(--gb-mono),monospace; letter-spacing:-.02em; margin-top:2px; }
 .box.keep { background:var(--soft); }
+.box { cursor:default; transition:background .18s ease, border-color .18s ease, transform .18s ease; }
+.box:hover { background:var(--a); border-color:var(--a); transform:translateY(-2px); }
+.box:hover b, .box:hover div { color:#fff !important; }
+.box.fee:hover { background:#f4dcd8; border-color:var(--red); }
+.box.fee:hover b, .box.fee:hover div { color:var(--red) !important; }
+.box.keep:hover { background:var(--ink); border-color:var(--ink); }
 .arrow { color:var(--mute); font-family:var(--gb-mono),monospace; }
 .neg { color:var(--red); }
 

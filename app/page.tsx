@@ -29,9 +29,9 @@ const cashRange = `+$${(cashLow / 100).toFixed(2)}–${(cashHigh / 100).toFixed(
 
 const SHOTS = [
   { src: '/landing/counter.png', w: 1440, h: 820, title: 'Counter', text: 'Price-first buttons, a receipt cart, PayPal checkout and QR.' },
-  { src: '/landing/forecast.png', w: 800, h: 530, title: 'Forecast', text: 'Your own history, seasonal markers and a dashed projection.' },
+  { src: '/landing/forecast.png', w: 770, h: 516, title: 'Forecast', text: 'Your own history, seasonal markers and a dashed projection.' },
   { src: '/landing/cashback.png', w: 1440, h: 820, title: 'Cashback', text: 'Balance, tiers and a payout log with PDF invoices.' },
-  { src: '/landing/ask.png', w: 614, h: 985, title: 'Ask giveback', text: '"Can we cover March rent?" The AI answers from real numbers.' },
+  { src: '/landing/ask.png', w: 592, h: 420, title: 'Ask giveback', text: 'Ask about rent or cash flow; it proposes an invoice and you confirm.' },
   { src: '/landing/reports.png', w: 1440, h: 820, title: 'Reports', text: 'Live displays and your own widgets in AG Studio.' },
   { src: '/landing/report.png', w: 850, h: 1100, title: 'Year-end report', text: 'Savings, a monthly chart and the payout log as a PDF.' },
 ];
@@ -97,7 +97,7 @@ export default function Home() {
                 <div className={styles.big}>{usd(SALE)}</div><div className={styles.cap}>Supporter pays</div>
               </div>
               <div className={styles.col}>
-                <div className={styles.icon}><div className={styles.gtile}>g</div></div>
+                <div className={styles.icon}><GivebackMark size={84} /></div>
                 <div className={`${styles.big} ${styles.red}`}>− {usd(paypalLump + gbFee)}</div><div className={styles.cap}>Platform and infrastructure fees</div>
               </div>
               <div className={styles.col}>
@@ -128,14 +128,14 @@ export default function Home() {
         <section className={`${styles.sect} ${styles.doors}`}>
           <div className={styles.door}>
             <div className={styles.lab}>For nonprofits</div>
-            <h3>Example vendor: Riverside Kitchen</h3>
+            <h3>Example vendor: Riverside Community Kitchen</h3>
             <p>Counter, live dashboard, AI cash-flow forecast, cashback wallet, reports.</p>
             <div className={styles.tags}>{['Counter', 'Dashboard', 'Cashback', 'Reports'].map((t) => <span key={t}>{t}</span>)}</div>
             <Link href="/vendor/dashboard" target="_blank" rel="noopener" className={styles.btn} style={{ marginTop: 8 }}><span>Open the vendor app</span><span>⏎</span></Link>
           </div>
           <div className={`${styles.door} ${styles.dark}`}>
             <div className={styles.lab}>For giveback</div>
-            <h3>The platform</h3>
+            <h3>The platform: giveback</h3>
             <p>How giveback earns pennies per payment, what it pays back, and the scale model.</p>
             <div className={styles.tags}>{['Revenue', 'Cashback paid', 'Scale model'].map((t) => <span key={t}>{t}</span>)}</div>
             <Link href="/platform" target="_blank" rel="noopener" className={`${styles.btn} ${styles.light}`} style={{ marginTop: 8 }}><span>See the economics</span><span>→</span></Link>
@@ -150,7 +150,7 @@ export default function Home() {
               <div key={s.title}>
                 <div className={styles.shot}>
                   <div className={styles.bar}><i /><i /><i /></div>
-                  <div className={styles.frame}><Image src={s.src} width={s.w} height={s.h} alt={`${s.title} screen`} /></div>
+                  <div className={styles.frame}><Image src={s.src} width={s.w} height={s.h} alt={`${s.title} screen`} unoptimized /></div>
                 </div>
                 <p className={styles.shotcap}><b>{s.title}.</b> {s.text}</p>
               </div>

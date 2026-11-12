@@ -44,7 +44,6 @@
 .phone:before{content:'';position:absolute;top:6px;width:24px;height:4px;border-radius:9px;background:var(--ink)}
 .stamp{border:3px solid var(--red);color:var(--red);font:700 13px var(--gb-mono),monospace;letter-spacing:.12em;padding:2px 8px;transform:rotate(-8deg);border-radius:4px;animation:slam .5s .6s both cubic-bezier(.2,1.6,.4,1)}
 @keyframes slam{from{opacity:0;transform:rotate(-8deg) scale(2.2)}to{opacity:1;transform:rotate(-8deg) scale(1)}}
-.gtile{width:84px;height:84px;border-radius:20px;background:var(--ac);color:var(--at);display:grid;place-items:center;font:700 46px var(--gb-ui),sans-serif}
 /* anywhere */
 .globe{display:grid;grid-template-columns:1.2fr 1fr;gap:30px;align-items:center}
 .map{background:var(--ink);border-radius:18px;padding:14px;position:relative;overflow:hidden}
