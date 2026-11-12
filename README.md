@@ -1,91 +1,126 @@
-> [!TIP]
-> **PayPal AI Hackathon**
-> 
-> Win part of $69,750 in total prizes
-> 
-> Build What's Next with PayPal and AI is a global online hackathon inviting developers, designers, founders, students, and builders to create something new using PayPal and AI.
-> 
-> There are no prescribed problem statements and no set of tracks. Build an agent, an app, an automation, a new payment experience, a business tool, a social product, or something we haven't thought of yet.
-> 
-> https://paypalaihackathon.devpost.com
+# giveback
 
-# PayPal SDK data pages
+**The platform that gives back.** A PayPal-powered point of sale and giving platform for nonprofits: take payments and donations, see your cash flow, ask an AI what you can afford, invoice a sponsor in one confirmed click, and earn **cashback** on every dollar you raise.
 
-A Next.js app that reads PayPal sandbox data over the [PayPal REST API](https://developer.paypal.com/api/rest/) and shows it two ways:
+Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com). Everything runs on the **PayPal sandbox**: no real money moves.
 
-- **Endpoint pages**: one [AG Grid](https://www.ag-grid.com/react-data-grid/) per PayPal endpoint the demo calls, showing what each returns.
-- **Dashboard** (`/dashboard`): an [AG Studio](https://www.ag-grid.com/studio/) report over all of that data, joined together, which you can edit and save in the browser.
+- **Live demo:** https://giveback-theta.vercel.app
+- **Example vendor app:** https://giveback-theta.vercel.app/vendor/dashboard (Riverside Community Kitchen)
+- **Platform economics:** https://giveback-theta.vercel.app/platform
+- **License:** [MIT](LICENSE)
+
+## The idea
+
+Nonprofits lose money on every payment and cannot see whether they will make rent next month. giveback is "Stripe for nonprofits": a platform where every payment carries **one admin fee** (PayPal's fees plus ours), and **volume earns cashback** on our part, paid back monthly through PayPal. An AI assistant forecasts cash flow from the organization's own history and can take a PayPal action, **only after the director confirms**.
+
+### The demo loop (all of it works end to end)
+
+1. **Sell.** A volunteer rings up a sale on the Counter, or a supporter scans the live display's QR code and pays with PayPal. Supporters can **cover the admin fee** so the nonprofit keeps 100%.
+2. **Record.** PayPal's webhook confirms the payment; the dashboard updates (today's total, cashback earned, tier progress, effective fee rate). The giveback platform account is paid, keeps its fee, and **settles the nonprofit instantly through the Payouts API**.
+3. **Ask.** The director asks "Can we cover the July venue rent?". The AI answers from real numbers and charts it in AG Studio.
+4. **Act.** The AI suggests invoicing a sponsor and prepares the invoice. One **Confirm** click sends a **PayPal invoice**; its status updates live from PayPal.
+5. **Get paid back.** Cashback is paid to the nonprofit's PayPal account with the **Payouts API**, with a PDF invoice for every payout and a year-end PDF report.
+
+### How the money splits (a $50 payment)
+
+| | |
+|---|---|
+| Supporter pays | $50.00 |
+| PayPal fees (2.89% + $0.30, plus PayPal's payout fee) | − $2.69 |
+| giveback (1.25% + $0.10) | − $0.73 |
+| Nonprofit receives | $46.58 |
+| Cashback later (0.5% / 0.75% / 1.0% of monthly volume) | + $0.25 to $0.50 |
+
+The fees are shown to the nonprofit as one **admin fee**. All figures on the landing page come from the same code the Counter uses ([`lib/fees.ts`](lib/fees.ts)).
+
+## What is real and what is simulated
+
+Honesty matters here, so plainly:
+
+- **Real (PayPal sandbox):** checkout (Orders API + JS SDK v6), webhooks with signature verification, Payouts (settlements and cashback), Invoicing (sponsor invoices), Transaction Search and Balances. All amounts move between real sandbox accounts.
+- **Simulated:** the **pricing advantage** that funds cashback. In a real launch it would come from pooled-volume pricing negotiated with PayPal and a sponsor pool. The cashback tiers are a configurable rule ([`lib/cashback.ts`](lib/cashback.ts)).
+- **Sandbox workaround:** PayPal cannot pay itself, so supporters pay the giveback platform account and giveback pays the nonprofit its share through Payouts. PayPal charges about 2% to send a payout; giveback bundles that into the admin fee. The payout fee cap in [`lib/fees.ts`](lib/fees.ts) is an assumption to verify before going live. Production would use PayPal's partner fee collection (or batch payouts daily).
+- **Sample data:** Riverside Community Kitchen's earlier history and the sample sponsors are seeded; recent payments are real sandbox transactions.
+
+## PayPal APIs used
+
+| API | Where | Why |
+|---|---|---|
+| **Orders v2** + **JS SDK v6** | `app/api/orders`, `lib/paypal.ts`, Counter | Checkout on the device, and phone/QR checkout |
+| **Webhooks** (verified) | `app/api/webhooks/paypal` | Idempotent recording of payments, payout and invoice status |
+| **Payouts** | `lib/paypal-payouts.ts`, `lib/settlements.ts`, `lib/payouts.ts` | Instant settlement to the nonprofit; monthly and year-end cashback |
+| **Invoicing** | `lib/sponsors.ts` | Sponsor invoices (create, send, status) |
+| **Transaction Search**, **Balances** | `app/(endpoints)` pages, AG Studio data | Reports over live sandbox data |
+
+## AI tools and models
+
+- **Model:** OpenAI **gpt-5.6-luna** (default; chosen for low cost and speed so judges can test freely), with `gpt-5.4-mini` and `gpt-5-mini` as alternates. Set by `OPENAI_MODELS`.
+- **Ask giveback (chat):** a tool-calling assistant ([`app/api/chat`](app/api/chat/route.ts), [`lib/chat-tools.ts`](lib/chat-tools.ts)). Every figure comes from the same engine as the dashboard cards, so they never disagree. It can **propose** a sponsor invoice but never sends one: the director confirms in a card.
+- **AG Studio** with its AI assistant and a swappable model adapter ([`app/(app)/vendor/reports`](app/(app)/vendor/reports)): reports, custom widgets (live display, impact grid, world map) and a custom theme.
+- **Built with:** Claude Code (Claude Sonnet 5.5), the PayPal AI Toolkit and the APIMatic Context Plugin for PayPal.
+- The AI never moves money without an explicit confirmation step, and invoice amounts always come from the database, never from the model.
+
+## Try it (sandbox logins)
+
+Sign in at [sandbox.paypal.com](https://www.sandbox.paypal.com). These sandbox accounts stay available through Dec 15, 2026.
+
+| Role | Email | Password |
+|---|---|---|
+| Supporter (personal): use this to pay | `sb-0he9w53817163@personal.example.com` | `ADD_PASSWORD_HERE` |
+| Nonprofit (business): receives money and invoices | `sb-kxj6f53815421@business.example.com` | `ADD_PASSWORD_HERE` |
+| giveback platform (business) | `giveback@business.example.com` | `ADD_PASSWORD_HERE` |
+
+A quick tour: open the [vendor app](https://giveback-theta.vercel.app/vendor/dashboard), add items on the **Counter** and choose **Pay on this device** or scan the QR with a phone, pay with the supporter account, then watch the **Dashboard** and **Cashback** pages update. In **Ask giveback**, try: *"Can we cover the July venue rent of $6000?"*, then confirm the invoice it prepares.
 
 ## Run locally
 
-Requires Node.js 20.9 or later and a PayPal sandbox REST app ([developer.paypal.com](https://developer.paypal.com/dashboard/applications/sandbox)). The transactions and balances pages also need the app's **Transaction search** feature enabled.
+Requires Node.js 20.9+, a Postgres database ([Neon](https://neon.com) free tier works), and PayPal sandbox REST apps ([developer.paypal.com](https://developer.paypal.com/dashboard/applications/sandbox)).
 
 ```bash
 npm install
-cp env.example .env.local   # then fill in the values
-npm run dev
+cp env.example .env.local     # fill in the values (see below)
+npm run db:migrate            # creates the tables
+npm run db:seed               # optional: realistic sandbox history for the sample nonprofit
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Next.js only loads the dotted `.env.local`; it is git-ignored, so credentials stay out of the repo.
+Other scripts: `npm test` (63 tests), `npm run typecheck`, `npm run lint`, `npm run build`.
 
-Other scripts: `npm run build` (production build), `npm run start` (serve the build), `npm run lint`.
+### Configuration
 
-### AG Studio licence (optional)
+Two PayPal sandbox apps are used: the **vendor's merchant account** (`PAYPAL_CLIENT_ID`/`PAYPAL_SECRET`) and the **giveback platform account** (`PAYOUT_CLIENT_ID`/`PAYOUT_CLIENT_SECRET`). With `CHECKOUT_MODE=platform` supporters pay the platform account and the nonprofit is settled by payout; any other value pays the nonprofit's account directly. See [`env.example`](env.example) for every variable, including:
 
-Set `AG_STUDIO` in `.env.local` to your AG Studio licence key. The dashboard passes it to `AgStudioProvider`.
+- `DATABASE_URL`, `DATABASE_URL_UNPOOLED`: Postgres.
+- `PAYPAL_WEBHOOK_ID`, `PAYOUT_WEBHOOK_ID`: webhook ids for the two apps. Point both webhooks at `https://<your-host>/api/webhooks/paypal`. Subscribe the vendor app to payment, payouts and invoicing events.
+- `NEXT_PUBLIC_APP_URL`: the public URL (QR codes and PayPal return links use it; it must not be localhost for phone payments).
+- `AG_STUDIO` (licence), `AG_STUDIO_OPENAI_API_KEY`, `OPENAI_MODELS`, `OPENAI_TPM`: the dashboard and AI assistant.
+- `CRON_SECRET`: protects the year-end payout cron (`vercel.json`).
+- No secrets are committed; `.env.local` is git-ignored.
 
-### AI assistant (optional)
+### Deploying
 
-The AG Studio dashboard at `/dashboard` has an AI assistant backed by OpenAI. The key is taken from the first of these that is set; with neither, the assistant is hidden:
+Deployed on Vercel (Hobby) with Neon Postgres. Set the same variables in the project settings and add the webhook URL above in PayPal. The year-end cashback payout runs as a Vercel Cron on Dec 31.
 
-1. `AG_STUDIO_OPENAI_API_KEY`, specific to this app. Put it in `.env.local` to choose the key for this demo.
-2. `OPENAI_API_KEY`, the name OpenAI's own tools use. If you already export one (e.g. in `~/.zshrc`), the demo uses it with no setup, and spends against it.
-
-A separate name is needed because Next.js prefers variables already in the environment over `.env.local`, so a globally exported `OPENAI_API_KEY` can't be overridden per project. The server logs which variable it used (never the key) the first time the assistant is configured.
-
-`OPENAI_MODELS` lists the model ids the assistant may use, comma-separated, first one the default (`gpt-5.4-mini` when unset); with two or more, the chat offers a model picker.
-
-The key never reaches the browser. Studio's adapter ([`openai-adapter.ts`](app/dashboard/studio/openai-adapter.ts), copied from the AG Studio docs) runs client-side and posts to this app's own [`/api/ai/responses`](app/api/ai/responses/route.ts), which adds the key, only allows the configured models, caps output tokens, and streams OpenAI's reply back.
-
-In production `.env.local` isn't deployed: set the variable in your host's environment (e.g. Vercel project settings, `docker run --env-file`, or a secrets manager), as with the PayPal credentials. The route has no auth or rate limiting, so don't deploy it publicly with a real key without adding one.
-
-## How it works
+## How it is built
 
 ```
-lib/paypal.ts            Every PayPal call: OAuth token, paging, retries, response types
-lib/dashboard-data.ts    Turns those responses into the dashboard's related tables
-app/(endpoints)/         One page per endpoint, each rendering an AG Grid
-app/dashboard/           The AG Studio dashboard
-app/api/ai/responses/    Server-side proxy for the dashboard's AI assistant
+app/page.tsx                 Landing page
+app/(app)/vendor/            The example vendor: counter, dashboard, cashback, reports (AG Studio), settings
+app/platform/                Platform economics: real numbers + an illustrative scale model
+app/pay/                     What a supporter's phone sees (donate page, PAID confirmation)
+app/api/                     Orders, webhooks, payouts, sponsor invoices, chat, cron
+lib/fees.ts                  Admin fee: PayPal + payout fee + giveback fee (integer cents)
+lib/cashback.ts, ledger.ts   Tiered cashback and the year ledger
+lib/settlements.ts           Instant settlement to the nonprofit after each payment
+lib/payouts.ts               Cashback payouts: balance, rules, status, PDF invoices
+lib/sponsors.ts              Sponsor invoices through the Invoicing API
+db/schema.sql                Postgres schema (idempotent)
 ```
 
-[`lib/paypal.ts`](lib/paypal.ts) calls the REST API with plain `fetch`, no SDK. It gets an OAuth access token with the client-credentials grant and caches it until just before it expires. It follows `page`/`total_pages` paging, and retries on 401, 429 and 5xx responses. Its types are hand-written for the fields this demo reads, in the API's own snake_case.
+Engineering notes: money is always integer cents and amounts are computed on the server, never trusted from the client; webhook signatures are verified and handled idempotently (PayPal retries up to 25 times); payout and settlement rows are reserved before calling PayPal so a retry can never pay twice; the order endpoint is rate limited; money paths are covered by tests.
 
-Every page is a server component that calls `await connection()`, so it renders per request with live data instead of being prerendered at build time. PayPal credentials never leave the server.
+The project started from PayPal's [AG Grid hackathon boilerplate](https://github.com/paypaldev/hackathon-paypal-ag-grid-boilerplate). The original endpoint pages (`/products`, `/plans`, `/invoices`, `/transactions`, `/balances`) are still in the repo.
 
-## Endpoint pages
+## License
 
-Each page in [`app/(endpoints)`](app/(endpoints)) calls one function in `lib/paypal.ts`, maps the response to flat rows, and passes them with plain column definitions to the shared [`DataGrid`](app/(endpoints)/data-grid.tsx). The page header shows the REST calls behind it.
-
-| Page | `lib/paypal.ts` function | REST calls |
-|---|---|---|
-| [`/products`](app/(endpoints)/products/page.tsx) | `listProducts()` | `GET /v1/catalogs/products`, then `GET /v1/catalogs/products/{id}` per product |
-| [`/plans`](app/(endpoints)/plans/page.tsx) | `listPlans()` | `GET /v1/billing/plans`, then `GET /v1/billing/plans/{id}` per plan |
-| [`/invoices`](app/(endpoints)/invoices/page.tsx) | `listInvoices()` | `GET /v2/invoicing/invoices`, then `GET /v2/invoicing/invoices/{id}` per invoice |
-| [`/transactions`](app/(endpoints)/transactions/page.tsx) | `searchTransactions(start, end)` | `GET /v1/reporting/transactions` |
-| [`/balances`](app/(endpoints)/balances/page.tsx) | `getBalances()` | `GET /v1/reporting/balances` |
-
-Things worth knowing about these endpoints:
-
-- **List endpoints return summaries.** Products have no type or category, plans no billing cycles, and invoices no line items, payments or refunds. So each record is fetched again in full, which is why these pages take a second or two.
-- **Billing plans keep their price in `billing_cycles`.** There is an optional `TRIAL` cycle, then the `REGULAR` cycle; `total_cycles: 0` means it bills until cancelled.
-- **Transaction Search covers at most 31 days per request** and rejects fractional seconds in dates. New activity can take up to three hours to appear. `fields=all` adds `payer_info` to each `transaction_info`. Event codes are [PayPal T-codes](https://developer.paypal.com/docs/transaction-search/transaction-event-codes/) (`T0001` = payout); status is `S` success, `P` pending, `D` denied, `V` reversed or `F` partially refunded.
-- **Amounts are decimal strings with a currency**, e.g. `{ "value": "2.99", "currency_code": "USD" }`. `amountOf()` turns them into numbers, and the grid formats money columns in each row's currency.
-
-### The grid
-
-Pages are server components, so the column definitions they pass to the grid must be plain data, with no functions. Money columns use the `type: 'money'` column type, defined in `data-grid.tsx`, which formats the value in the row's `currency`. Date columns use AG Grid's built-in `cellDataType: 'dateString'` or `'dateTimeString'`. Every column can be sorted and filtered, and the search box filters across all columns.
-
-## Dashboard
-
-[`/dashboard`](app/dashboard/page.tsx) fetches all five endpoints at once. [`lib/dashboard-data.ts`](lib/dashboard-data.ts) turns them into related tables: customers, invoices, invoice line items, invoice payments, products, plans, transactions, payouts and balances. AG Studio's data sources, relationships, theme, default report and AI assistant are configured in [`app/dashboard/studio`](app/dashboard/studio). Reports you create or edit are saved in the browser's localStorage.
+[MIT](LICENSE)
