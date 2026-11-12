@@ -1,4 +1,4 @@
-# giveback
+# <img src="public/brand/giveback-logo.png" alt="giveback logo" height="44" align="absmiddle"> giveback
 
 **The platform that gives back.** A PayPal-powered point of sale and giving platform for nonprofits: take payments and donations, see your cash flow, ask an AI what you can afford, invoice a sponsor in one confirmed click, and earn **cashback** on every dollar you raise.
 
