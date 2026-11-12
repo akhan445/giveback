@@ -7,7 +7,7 @@ const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'A
 const dollars = (c: number) => Math.round(c) / 100;
 
 export const TOOL_DEFINITIONS = [
-  { type: 'function', name: 'get_summary', description: 'This month so far: money raised, payments, PayPal fees, cashback earned and tier, effective fee rate, plus today.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
+  { type: 'function', name: 'get_summary', description: 'This month so far: money raised, payments, admin fees (PayPal + giveback), cashback earned and tier, effective fee rate, plus today.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   { type: 'function', name: 'get_monthly_history', description: 'Total raised per month for all past months, oldest first.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   { type: 'function', name: 'get_year_projection', description: 'Where this calendar year is projected to land, with the projected total per remaining month.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   { type: 'function', name: 'get_opportunities', description: 'Upcoming calendar opportunities that fit this organization type, plus the smoothing reserve plan, with numbers from its own history.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
@@ -23,7 +23,7 @@ export function runTool(name: string, args: Record<string, unknown>, ov: Overvie
     case 'get_summary':
       return {
         currency: ov.currency, month: ov.month.key,
-        raised: dollars(ov.month.volumeCents), payments: ov.month.count, paypal_fees: dollars(ov.month.feeCents),
+        raised: dollars(ov.month.volumeCents), payments: ov.month.count, admin_fees_paypal_plus_giveback: dollars(ov.month.feeCents),
         fees_covered_by_supporters: dollars(ov.month.feeCoveredCents), cashback_earned: dollars(ov.month.cashbackCents),
         tier: ov.month.tier, cashback_rate_percent: ov.month.rateBp / 100, effective_fee_rate_percent: Number((ov.month.effectiveFeeBp / 100).toFixed(2)),
         raised_today: dollars(ov.today.volumeCents), payments_today: ov.today.count,

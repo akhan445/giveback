@@ -5,17 +5,18 @@ import { useState } from 'react';
 import type { Goal } from '@/lib/campaign';
 import { CELL_SHAPES, HERO_SHAPES, defaultImpact, resolveImpact, type CellShape, type HeroShape, type Impact } from '@/lib/impact';
 import { ORG_TYPES, TRADITIONS, type OrgProfile, type OrgType, type Tradition } from '@/lib/org';
-import { displayClass } from '../dashboard/widgets/live-widgets';
-import { ImpactFill, ImpactGrid } from '../dashboard/widgets/live-widgets';
-import styles from '../overview/overview.module.css';
+import { displayClass } from '../reports/widgets/live-widgets';
+import { ImpactFill, ImpactGrid } from '../reports/widgets/live-widgets';
+import styles from '../dashboard/overview.module.css';
 
 const PREVIEW_PCT = 0.71;
 
-export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; initialGoal: Goal }) {
+export function SettingsForm({ initial, initialGoal, initialPayoutEmail }: { initial: OrgProfile; initialGoal: Goal; initialPayoutEmail: string }) {
   // Organization
   const [name, setName] = useState(initial.name);
   const [orgType, setOrgType] = useState<OrgType>(initial.orgType);
   const [tradition, setTradition] = useState<Tradition>(initial.tradition ?? 'other');
+  const [payoutEmail, setPayoutEmail] = useState(initialPayoutEmail);
   // Goal and raised so far
   const [goalName, setGoalName] = useState(initialGoal.name);
   const [goalDollars, setGoalDollars] = useState(String(initialGoal.goalCents / 100));
@@ -53,11 +54,12 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
     if (!validGoal || !validCost) return;
     setState('saving');
     const headers = { 'content-type': 'application/json' };
-    const [orgRes, goalRes] = await Promise.all([
+    const [orgRes, goalRes, payRes] = await Promise.all([
       fetch('/api/org', { method: 'PUT', headers, body: JSON.stringify({ name, orgType, tradition: orgType === 'faith' ? tradition : null }) }),
       fetch('/api/goal', { method: 'PUT', headers, body: JSON.stringify({ name: goalName, goalCents, start: start || null, impact: custom ? impact : null }) }),
+      fetch('/api/payout-email', { method: 'PUT', headers, body: JSON.stringify({ email: payoutEmail.trim() || null }) }),
     ]);
-    setState(orgRes.ok && goalRes.ok ? 'saved' : 'error');
+    setState(orgRes.ok && goalRes.ok && payRes.ok ? 'saved' : 'error');
   }
 
   const field = { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 } as const;
@@ -87,6 +89,15 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
                 </select>
               </div>
             )}
+          </section>
+
+          <section className={styles.card}>
+            <h2 style={h}>Cashback payouts</h2>
+            <div style={field}>
+              <label className={styles.label} htmlFor="payoutEmail">Payout PayPal email</label>
+              <input id="payoutEmail" style={input} type="email" value={payoutEmail} onChange={(e) => setPayoutEmail(e.target.value)} maxLength={120} placeholder="your-organization@example.com" />
+              <span className={styles.sub}>Where giveback sends your cashback through PayPal Payouts. In the sandbox this is the merchant account that receives your checkout payments.</span>
+            </div>
           </section>
 
           <section className={styles.card}>
@@ -161,7 +172,7 @@ export function SettingsForm({ initial, initialGoal }: { initial: OrgProfile; in
 
           <div className={styles.actions} style={{ alignItems: 'center' }}>
             <button className={`${styles.btn} ${styles.p}`} disabled={state === 'saving' || !validGoal || !validCost}>Save</button>
-            {state === 'saved' && <span className={`${styles.sub} ${styles.good}`}>Saved. <Link href="/dashboard" style={{ color: 'inherit' }}>Open the live display</Link></span>}
+            {state === 'saved' && <span className={`${styles.sub} ${styles.good}`}>Saved. <Link href="/vendor/reports" style={{ color: 'inherit' }}>Open the live display</Link></span>}
             {state === 'error' && <span className={styles.sub} style={{ color: 'var(--red)' }}>Could not save.</span>}
           </div>
         </form>

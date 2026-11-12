@@ -6,6 +6,7 @@ import { parseOrderTag } from './fees';
 import { decimalToCents } from './money';
 import { captureOrder } from './paypal';
 import { upsertPayment } from './payments';
+import { runAfterResponse, settleCapture } from './settlements';
 
 export type Captured = {
   status: string;
@@ -41,6 +42,8 @@ export async function captureAndRecord(orderId: string): Promise<Captured> {
     payerEmail: result.payer?.email_address,
     source: 'capture',
   });
+  // Pay the vendor its share AFTER the supporter has their PAID screen (see lib/settlements.ts).
+  if (capture.status === 'COMPLETED') runAfterResponse(() => settleCapture(capture.id));
   return {
     status: capture.status,
     captureId: capture.id,

@@ -51,3 +51,43 @@ ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_cell       TEXT;
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_unit       TEXT;
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_done       TEXT;
 ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS impact_unit_cents INTEGER CHECK (impact_unit_cents IS NULL OR impact_unit_cents > 0);
+
+-- Cashback payouts: giveback (the platform sandbox account) pays accrued cashback to the organization
+-- through the PayPal Payouts API. A row is written BEFORE calling PayPal (status PENDING) so a double click
+-- or a retry can never pay twice; `id` becomes the PayPal sender_batch_id.
+CREATE TABLE IF NOT EXISTS cashback_payouts (
+  id              BIGSERIAL PRIMARY KEY,
+  year            INTEGER NOT NULL,                 -- the year of cashback this payout settles
+  amount_cents    INTEGER NOT NULL CHECK (amount_cents > 0),
+  currency        TEXT NOT NULL,
+  recipient_email TEXT NOT NULL,
+  trigger         TEXT NOT NULL CHECK (trigger IN ('manual', 'year_end')),
+  status          TEXT NOT NULL DEFAULT 'PENDING',  -- PENDING, PROCESSING, SUCCESS, FAILED, UNCLAIMED, RETURNED, ...
+  paypal_batch_id TEXT UNIQUE,
+  error           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Where cashback is sent. null = PAYOUT_RECIPIENT_EMAIL from the environment.
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS payout_email TEXT;
+
+-- giveback's own fee on each payment (the platform fee, on top of PayPal's). Computed on the server (lib/fees.ts).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS platform_fee_cents INTEGER NOT NULL DEFAULT 0 CHECK (platform_fee_cents >= 0);
+
+-- Settlement: after a payment lands in the giveback platform account, the vendor is paid its share through the
+-- Payouts API (payment - PayPal fee - giveback fee). One row per payment (unique), written BEFORE the PayPal call
+-- so webhook + capture racing each other can never pay the vendor twice. `id` becomes the PayPal sender_batch_id.
+CREATE TABLE IF NOT EXISTS settlements (
+  id              BIGSERIAL PRIMARY KEY,
+  payment_id      BIGINT NOT NULL UNIQUE REFERENCES payments(id),
+  amount_cents    INTEGER NOT NULL CHECK (amount_cents > 0),
+  currency        TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'PENDING',
+  paypal_batch_id TEXT UNIQUE,
+  error           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- PayPal's fee for paying the vendor (Payouts), bundled into the admin fee. Set when a payment is settled.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payout_fee_cents INTEGER NOT NULL DEFAULT 0 CHECK (payout_fee_cents >= 0);

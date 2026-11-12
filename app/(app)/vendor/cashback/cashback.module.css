@@ -1,0 +1,63 @@
+/* Cashback page. Tokens and base classes come from ../overview/overview.module.css (Sage + Ledger buttons). */
+.head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.head h1 { margin:2px 0 0; font-size:22px; }
+.top { display:grid; grid-template-columns:1fr 380px; gap:14px; align-items:stretch; }
+.mid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
+@media (max-width:1000px) { .top, .mid { grid-template-columns:1fr; } }
+
+.headline { font:700 26px/1.25 var(--gb-ui),system-ui,sans-serif; margin:8px 0 16px; }
+.flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.box { border:1px solid var(--line); border-radius:14px; padding:10px 14px; background:var(--surf); min-width:96px; }
+.box b { display:block; font:500 18px var(--gb-mono),monospace; letter-spacing:-.02em; margin-top:2px; }
+.box.keep { background:var(--soft); }
+.arrow { color:var(--mute); font-family:var(--gb-mono),monospace; }
+.neg { color:var(--red); }
+
+/* The dark wallet card */
+.wallet { background:var(--ink); color:var(--ai); border-radius:18px; padding:22px; display:flex; flex-direction:column; min-width:0; }
+.wallet .label { color:#aab59f; }
+.walletBig { font:600 40px/1 var(--gb-mono),monospace; letter-spacing:-.03em; margin:12px 0 6px; }
+.walletBig small { font-size:15px; color:#aab59f; letter-spacing:0; margin-left:6px; }
+.walletNote { color:#aab59f; font-size:12px; line-height:1.45; word-break:break-word; }
+.collect { margin-top:18px; width:100%; display:flex; justify-content:space-between; border:0; border-radius:2px; padding:12px 14px; cursor:pointer; background:var(--ai); color:var(--ink); font:600 12px var(--gb-mono),monospace; letter-spacing:.02em; text-transform:uppercase; }
+.collect:disabled { background:#3a4631; color:#aab59f; cursor:not-allowed; }
+.ghost { margin-top:8px; display:flex; justify-content:space-between; border:1px solid #6b7a5f; border-radius:2px; padding:12px 14px; color:var(--ai); text-decoration:none; font:600 12px var(--gb-mono),monospace; letter-spacing:.02em; text-transform:uppercase; }
+.why { margin-top:8px; font-size:12px; color:#e6c27a; min-height:16px; }
+.rules { margin-top:auto; padding-top:16px; display:flex; flex-direction:column; gap:3px; font-size:12px; color:#aab59f; }
+.rules .ok { color:#bfd3a8; }
+.sim { background:none; border:0; padding:8px 0 0; cursor:pointer; text-align:left; color:#aab59f; font:500 10.5px var(--gb-mono),monospace; letter-spacing:.06em; text-transform:uppercase; text-decoration:underline; }
+.sim:disabled { opacity:.5; cursor:not-allowed; text-decoration:none; }
+
+/* Cashback by month */
+.months { display:flex; align-items:flex-end; gap:8px; height:190px; margin-top:12px; }
+.col { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:3px; }
+.col b { display:block; width:100%; background:var(--a); border-radius:3px 3px 0 0; min-height:2px; }
+.col em { font:600 10px var(--gb-mono),monospace; font-style:normal; white-space:nowrap; }
+.col span { font:500 10px var(--gb-mono),monospace; color:var(--mute); }
+.col i { font:500 8px var(--gb-mono),monospace; font-style:normal; color:var(--mute); text-transform:uppercase; }
+.col.empty b { background:transparent; }
+
+/* Payout log */
+.table { width:100%; border-collapse:collapse; margin-top:8px; }
+.table th { text-align:left; font:500 10.5px var(--gb-mono),monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); padding:6px 8px 6px 0; border-bottom:1px solid var(--line); }
+.table td { padding:10px 8px 10px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+.status { font:500 10px var(--gb-mono),monospace; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:99px; background:var(--soft); color:var(--a); }
+.status.wait { background:#f1ead0; color:#7a5d12; }
+.status.bad { background:#f3dcdc; color:var(--red); }
+.scroll { overflow-x:auto; }
+.empty { color:var(--mute); padding:14px 0 4px; }
+
+.banner { border-radius:8px; padding:10px 14px; font-size:13px; }
+.banner.good { background:var(--soft); }
+.banner.err { background:#f3dcdc; color:var(--red); }
+
+/* Confirm dialog */
+.overlay { position:fixed; inset:0; background:rgba(37,48,31,.5); display:grid; place-items:center; z-index:80; padding:16px; }
+.dialog { background:var(--surf); border-radius:18px; padding:24px; width:min(440px,100%); box-shadow:0 20px 50px rgba(0,0,0,.25); }
+.dialog h2 { margin:6px 0 10px; font-size:20px; }
+.dialog dl { margin:14px 0; }
+.dialog dl div { display:flex; justify-content:space-between; gap:16px; padding:6px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+.dialog dt { color:var(--mute); }
+.dialog dd { margin:0; font-family:var(--gb-mono),monospace; text-align:right; word-break:break-all; }
+
+.inv { font:600 11px var(--gb-mono),monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--a); text-decoration:underline; }

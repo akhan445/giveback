@@ -68,7 +68,7 @@ export async function getStudioData(): Promise<StudioData> {
       id: string; paid_at: Date; kind: string; payer_name: string | null; anonymous: boolean;
       description: string | null; payer_country: string | null; payer_city: string | null; currency: string; amount_cents: number; fee_cents: number; fee_covered_cents: number;
     }>(
-      `SELECT paypal_capture_id AS id, paid_at, kind, payer_name, anonymous, description, payer_country, payer_city, currency, amount_cents, fee_cents, fee_covered_cents
+      `SELECT paypal_capture_id AS id, paid_at, kind, payer_name, anonymous, description, payer_country, payer_city, currency, amount_cents, fee_cents + platform_fee_cents + payout_fee_cents AS fee_cents, fee_covered_cents
        FROM payments WHERE status = 'COMPLETED' ORDER BY paid_at DESC`,
     ),
     getOrgProfile(),

@@ -2,8 +2,10 @@
 // payment; both go through upsertPayment, keyed by PayPal's capture id, so it is stored once.
 import type { PoolClient } from 'pg';
 import { db } from './db';
-import { parseOrderTag } from './fees';
+import { parseOrderTag, platformFeeCents } from './fees';
 import { decimalToCents } from './money';
+import { applyPayoutStatus } from './payouts';
+import { runAfterResponse, settleCapture } from './settlements';
 
 export type PaymentInput = {
   captureId: string;
@@ -27,8 +29,8 @@ type Queryable = Pick<PoolClient, 'query'>;
 
 export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
   await q.query(
-    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source, payer_name, anonymous, payer_country, payer_city)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+    `INSERT INTO payments (paypal_capture_id, paypal_order_id, amount_cents, currency, fee_cents, fee_covered_cents, status, kind, description, payer_email, source, payer_name, anonymous, payer_country, payer_city, platform_fee_cents)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      ON CONFLICT (paypal_capture_id) DO UPDATE SET
        status        = EXCLUDED.status,
        fee_cents     = GREATEST(payments.fee_cents, EXCLUDED.fee_cents),
@@ -40,7 +42,7 @@ export async function upsertPayment(p: PaymentInput, q: Queryable = db()) {
        payer_country = COALESCE(payments.payer_country, EXCLUDED.payer_country),
        payer_city    = COALESCE(payments.payer_city, EXCLUDED.payer_city),
        anonymous     = payments.anonymous OR EXCLUDED.anonymous`,
-    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source, p.payerName ?? null, p.anonymous ?? false, p.payerCountry ?? null, p.payerCity ?? null],
+    [p.captureId, p.orderId ?? null, p.amountCents, p.currency, p.feeCents, p.feeCoveredCents ?? 0, p.status, p.kind, p.description ?? null, p.payerEmail ?? null, p.source, p.payerName ?? null, p.anonymous ?? false, p.payerCountry ?? null, p.payerCity ?? null, platformFeeCents(p.amountCents, p.currency)],
   );
 }
 
@@ -54,6 +56,10 @@ type WebhookEvent = {
     amount?: { value: string; currency_code: string };
     seller_receivable_breakdown?: { paypal_fee?: { value: string } };
     supplementary_data?: { related_ids?: { order_id?: string } };
+    // Payout events: a batch carries batch_header, an item carries payout_batch_id + transaction_status.
+    batch_header?: { payout_batch_id?: string; batch_status?: string };
+    payout_batch_id?: string;
+    transaction_status?: string;
   };
 };
 
@@ -89,7 +95,14 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
         client,
       );
     }
+    if (event.event_type.startsWith('PAYMENT.PAYOUTSBATCH.') && r?.batch_header?.payout_batch_id && r.batch_header.batch_status) {
+      await applyPayoutStatus(r.batch_header.payout_batch_id, r.batch_header.batch_status, client);
+    } else if (event.event_type.startsWith('PAYMENT.PAYOUTS-ITEM.') && r?.payout_batch_id && r.transaction_status) {
+      await applyPayoutStatus(r.payout_batch_id, r.transaction_status, client);
+    }
     await client.query('COMMIT');
+    // The vendor is paid after the response, never while PayPal (or the supporter) waits.
+    if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' && r?.id) runAfterResponse(() => settleCapture(r.id!));
     return 'processed';
   } catch (e) {
     await client.query('ROLLBACK');

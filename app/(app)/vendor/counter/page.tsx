@@ -410,7 +410,7 @@ export default function PosPage() {
                   {coverFees ? '✓' : ''}
                 </span>
                 <span className={styles.feeText}>
-                  <b>Cover the PayPal fee</b>
+                  <b>Cover the admin fee</b>
                   <small>Org keeps 100%</small>
                 </span>
                 <span className={styles.mono}>+{centsToDecimal(feeCoverCents(subtotalCents, currency))}</span>

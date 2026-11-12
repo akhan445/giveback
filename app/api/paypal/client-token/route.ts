@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
+import { checkoutCreds } from '@/lib/paypal';
 
 // The v6 JS SDK needs a short-lived, browser-safe token. It is minted here so the
 // client secret never leaves the server.
 export async function GET() {
-  const { PAYPAL_CLIENT_ID: id, PAYPAL_SECRET: secret } = process.env;
-  if (!id || !secret) return NextResponse.json({ error: 'PayPal is not configured' }, { status: 500 });
+  let id: string, secret: string;
+  try {
+    ({ id, secret } = checkoutCreds()); // the account that takes the payment (platform or merchant)
+  } catch {
+    return NextResponse.json({ error: 'PayPal is not configured' }, { status: 500 });
+  }
 
   const res = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', {
     method: 'POST',

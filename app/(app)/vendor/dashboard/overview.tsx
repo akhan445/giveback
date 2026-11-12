@@ -68,7 +68,7 @@ export function Overview({ data }: { data: OverviewData }) {
           <div className={styles.card}><div className={styles.label}>Cashback earned</div><div className={styles.big}>{money(m.cashbackCents)}</div><div className={styles.sub}>{pct(m.rateBp)} · {m.tier} tier</div></div>
           <div className={styles.card}><div className={styles.label}>Effective fee rate</div><div className={styles.big}>{pct(m.effectiveFeeBp)}</div>
             <div className={`${styles.sub} ${styles.good}`}>vs {pct(typicalBp)} typical ·{' '}
-              <span className={styles.tip} title={`(PayPal fee ${money(m.feeCents)} − fees covered by supporters ${money(m.feeCoveredCents)} − cashback ${money(m.cashbackCents)}) ÷ ${money(m.volumeCents)} raised`}>formula ⓘ</span></div></div>
+              <span className={styles.tip} title={`(admin fee ${money(m.feeCents)} − fees covered by supporters ${money(m.feeCoveredCents)} − cashback ${money(m.cashbackCents)}) ÷ ${money(m.volumeCents)} raised`}>formula ⓘ</span></div></div>
         </section>
 
         <div className={styles.cols}>
@@ -78,9 +78,9 @@ export function Overview({ data }: { data: OverviewData }) {
               <div style={{ marginTop: 6 }}>
                 {[
                   { k: 'Raised', v: m.volumeCents, sign: '', tip: 'Everything supporters paid this month, in your currency.', cls: '' },
-                  { k: 'PayPal fee', v: m.feeCents, sign: '−', tip: 'What PayPal charged on those payments (2.89% + a fixed amount each).', cls: '' },
+                  { k: 'Admin fee', v: m.feeCents, sign: '−', tip: "PayPal's fee (2.89% + $0.30) plus giveback's platform fee (1.25% + $0.10) on those payments.", cls: '' },
                   { k: 'Cashback', v: m.cashbackCents, sign: '+', tip: 'Volume cashback on this month’s total, paid to your PayPal account monthly (simulated in the sandbox).', cls: styles.good },
-                  { k: 'You keep', v: youKeep, sign: '', tip: 'Raised − PayPal fee + cashback.', cls: styles.keep },
+                  { k: 'You keep', v: youKeep, sign: '', tip: 'Raised − admin fee + cashback.', cls: styles.keep },
                 ].map((r) => (
                   <div key={r.k} className={`${styles.row} ${styles.hov} ${r.cls === styles.keep ? styles.keep : ''}`} title={r.tip} tabIndex={0}>
                     <i className={styles.share} style={{ width: `${m.volumeCents ? Math.max(1.5, (r.v / m.volumeCents) * 100) : 0}%` }} />
@@ -129,7 +129,7 @@ export function Overview({ data }: { data: OverviewData }) {
             <div>
               <div className={styles.aiHead}>
                 <div className={styles.label}>AI opportunities</div>
-                <div className={styles.sub}>Tailored for <b style={{ color: 'var(--ink)' }}>{ORG_TYPES[data.org.orgType]}</b> · <Link href="/settings" style={{ color: 'inherit' }}>change</Link></div>
+                <div className={styles.sub}>Tailored for <b style={{ color: 'var(--ink)' }}>{ORG_TYPES[data.org.orgType]}</b> · <Link href="/vendor/settings" style={{ color: 'inherit' }}>change</Link></div>
               </div>
               <div className={styles.chipsRow} role="tablist" aria-label="Filter opportunities">
                 {['All', ...tags].map((t) => (

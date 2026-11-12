@@ -48,7 +48,7 @@ const money: AgPageState = {
     'kpi-raised': kpi('Raised', sum('gifts.amount'), 'calendar::month'),
     'kpi-gifts': kpi('Payments', countd('gifts.id'), 'calendar::month'),
     'kpi-average': kpi('Average payment', avg('gifts.amount')),
-    'kpi-net': kpi('Kept after PayPal fees', sum('gifts.net'), 'calendar::month'),
+    'kpi-net': kpi('Kept after admin fees', sum('gifts.net'), 'calendar::month'),
     'raised-by-month': {
       type: 'combo-chart-grouped-column-line',
       dataMapping: {
@@ -57,7 +57,7 @@ const money: AgPageState = {
         secondaryValueKey: [sum('gifts.fee')],
       },
       format: {
-        ...title('Raised by month (columns) and PayPal fees (line)'),
+        ...title('Raised by month (columns) and admin fees (line)'),
         style: { theme: { common: { legend: { enabled: true } } } },
       },
     },
@@ -188,7 +188,7 @@ const cashback: AgPageState = {
   id: 'cashback',
   widgets: {
     'kpi-cashback': kpi('Cashback earned', sum('months.cashback'), 'calendar::month'),
-    'kpi-fees': kpi('PayPal fees', sum('months.fees'), 'calendar::month'),
+    'kpi-fees': kpi('Admin fees', sum('months.fees'), 'calendar::month'),
     'kpi-volume': kpi('Volume', sum('months.volume'), 'calendar::month'),
     'kpi-cover': kpi('Fees covered by supporters', { id: 'coverRate' } as never),
     'cashback-by-month': {

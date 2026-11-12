@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation';
 import styles from './app-nav.module.css';
 
 const TABS = [
-  { href: '/pos', label: 'Counter' },
-  { href: '/overview', label: 'Dashboard' },
-  { href: '/dashboard', label: 'Reports' },
-  { href: '/settings', label: 'Settings' },
+  { href: '/vendor/counter', label: 'Counter' },
+  { href: '/vendor/dashboard', label: 'Dashboard' },
+  { href: '/vendor/cashback', label: 'Cashback' },
+  { href: '/vendor/reports', label: 'Reports' },
+  { href: '/vendor/settings', label: 'Settings' },
 ];
 
 export function AppNav({ orgName }: { orgName: string }) {

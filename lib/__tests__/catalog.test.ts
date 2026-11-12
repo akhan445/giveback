@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { splitPayment } from '../fees';
 import { priceOrder } from '../catalog';
 
 describe('priceOrder', () => {
@@ -31,11 +32,10 @@ describe('priceOrder currencies', () => {
 describe('cover fees', () => {
   it('adds a server-computed add-on that covers PayPal fee on the whole payment', () => {
     const o = priceOrder({ items: [{ id: 'cookie', qty: 1 }], coverFees: true }); // $12.00
-    expect(o.feeCoverCents).toBe(Math.ceil((1200 * 289 + 30 * 10000) / (10000 - 289)));
     expect(o.totalCents).toBe(1200 + o.feeCoverCents);
-    // organization keeps the full $12.00 after PayPal's 2.89% + $0.30 on the new total
-    const fee = Math.round((o.totalCents * 289) / 10000 + 30);
-    expect(o.totalCents - fee).toBeGreaterThanOrEqual(1200);
+    // the organization nets at least the full $12.00 after PayPal's fee, the payout fee and giveback's fee on the new total
+    const paypal = Math.round((o.totalCents * 289) / 10000) + 30;
+    expect(splitPayment(o.totalCents, paypal, 'USD').vendorShare).toBeGreaterThanOrEqual(1200);
     expect(o.description).toContain('Admin fees');
   });
   it('adds nothing when off', () => {

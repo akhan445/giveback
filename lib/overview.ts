@@ -14,10 +14,10 @@ export async function getOverview(today = new Date()) {
 
   // Per-currency sums for the current month and today, converted to the org currency.
   const { rows } = await db().query<{ scope: string; currency: string; volume: string; fee: string; covered: string; n: string }>(
-    `SELECT 'month' AS scope, currency, sum(amount_cents) AS volume, sum(fee_cents) AS fee, sum(fee_covered_cents) AS covered, count(*) AS n
+    `SELECT 'month' AS scope, currency, sum(amount_cents) AS volume, sum(fee_cents + platform_fee_cents + payout_fee_cents) AS fee, sum(fee_covered_cents) AS covered, count(*) AS n
        FROM payments WHERE status = 'COMPLETED' AND to_char(paid_at AT TIME ZONE 'UTC', 'YYYY-MM') = $1 GROUP BY currency
      UNION ALL
-     SELECT 'today', currency, sum(amount_cents), sum(fee_cents), sum(fee_covered_cents), count(*)
+     SELECT 'today', currency, sum(amount_cents), sum(fee_cents + platform_fee_cents + payout_fee_cents), sum(fee_covered_cents), count(*)
        FROM payments WHERE status = 'COMPLETED' AND to_char(paid_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') = $2 GROUP BY currency`,
     [month, day],
   );

@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:backfill": "tsx --env-file=.env.local scripts/backfill-platform-fee.ts",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "db:smoke": "tsx --env-file=.env.local scripts/smoke-db.ts"
   },
@@ -24,6 +25,7 @@
     "country-flag-icons": "^1.6.20",
     "d3-geo": "^3.1.2",
     "next": "16.3.6",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",

@@ -3,7 +3,7 @@
 // Usage: npm run db:seed   (safe to repeat; never touches real captures/webhooks)
 import { Pool } from 'pg';
 import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '../lib/currency';
-import { feeCoverCents } from '../lib/fees';
+import { feeCoverCents, platformFeeCents } from '../lib/fees';
 
 // Typical monthly volume by calendar month (org currency, in dollars): a food bank with a spring drive
 // (Mar), a summer dip (Jun-Aug, kids out of school) and a big December. Grows ~8% a year.
@@ -67,7 +67,7 @@ async function main() {
   await pool.query("DELETE FROM payments WHERE source = 'seed'");
 
   let n = 0;
-  const rowsOut: { id: string; amount: number; fee: number; cover: number; cur: string; kind: string; desc: string; at: Date; name: string; anon: boolean; country: string; city: string }[] = [];
+  const rowsOut: { id: string; amount: number; fee: number; pfee: number; cover: number; cur: string; kind: string; desc: string; at: Date; name: string; anon: boolean; country: string; city: string }[] = [];
   for (const m of MONTHS) {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + m.offset, 1));
     const daysInMonth = m.offset === 0 ? Math.max(1, now.getUTCDate() - 1) : new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
@@ -98,7 +98,7 @@ async function main() {
       const fee = Math.round((amount * 289) / 10_000) + convertUsdCents(30, cur);
       const day = 1 + Math.floor(rand() * daysInMonth);
       const paidAt = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), day, 9 + Math.floor(rand() * 10), Math.floor(rand() * 60)));
-      rowsOut.push({ id: `SEED-${++n}`, amount, fee, cover, cur, kind: isDonation ? 'donation' : 'sale', desc: description, at: paidAt, name: NAMES[Math.floor(rand() * NAMES.length)], anon: rand() < 0.25, ...place(cur, rand) });
+      rowsOut.push({ id: `SEED-${++n}`, amount, fee, pfee: platformFeeCents(amount, cur), cover, cur, kind: isDonation ? 'donation' : 'sale', desc: description, at: paidAt, name: NAMES[Math.floor(rand() * NAMES.length)], anon: rand() < 0.25, ...place(cur, rand) });
       volume += toOrgCents(amount, cur);
     }
   }
@@ -106,10 +106,10 @@ async function main() {
   for (let i = 0; i < rowsOut.length; i += CHUNK) {
     const c = rowsOut.slice(i, i + CHUNK);
     await pool.query(
-      `INSERT INTO payments (paypal_capture_id, amount_cents, fee_cents, fee_covered_cents, currency, status, kind, description, source, paid_at, payer_name, anonymous, payer_country, payer_city)
-       SELECT id, amount, fee, cover, cur, 'COMPLETED', kind, descr, 'seed', at, pname, anon, ctry, city
-       FROM unnest($1::text[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::text[], $8::timestamptz[], $9::text[], $10::boolean[], $11::text[], $12::text[]) AS t(id, amount, fee, cover, cur, kind, descr, at, pname, anon, ctry, city)`,
-      [c.map((r) => r.id), c.map((r) => r.amount), c.map((r) => r.fee), c.map((r) => r.cover), c.map((r) => r.cur), c.map((r) => r.kind), c.map((r) => r.desc), c.map((r) => r.at), c.map((r) => r.name), c.map((r) => r.anon), c.map((r) => r.country), c.map((r) => r.city)],
+      `INSERT INTO payments (paypal_capture_id, amount_cents, fee_cents, fee_covered_cents, currency, status, kind, description, source, paid_at, payer_name, anonymous, payer_country, payer_city, platform_fee_cents)
+       SELECT id, amount, fee, cover, cur, 'COMPLETED', kind, descr, 'seed', at, pname, anon, ctry, city, pfee
+       FROM unnest($1::text[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::text[], $8::timestamptz[], $9::text[], $10::boolean[], $11::text[], $12::text[], $13::int[]) AS t(id, amount, fee, cover, cur, kind, descr, at, pname, anon, ctry, city, pfee)`,
+      [c.map((r) => r.id), c.map((r) => r.amount), c.map((r) => r.fee), c.map((r) => r.cover), c.map((r) => r.cur), c.map((r) => r.kind), c.map((r) => r.desc), c.map((r) => r.at), c.map((r) => r.name), c.map((r) => r.anon), c.map((r) => r.country), c.map((r) => r.city), c.map((r) => r.pfee)],
     );
   }
   const { rows } = await pool.query(

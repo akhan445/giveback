@@ -64,11 +64,11 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
     description:
       `Payments taken by ${data.org} through its PayPal-powered counter. Amounts are in the organization's currency (CAD). ` +
       'Gifts has one row per completed payment (a donation or a counter sale); anonymous supporters appear as "Anonymous". ' +
-      'Months has one row per calendar month with the volume, PayPal fees and the volume cashback earned (simulated in the sandbox).',
+      'Months has one row per calendar month with the volume, admin fees (PayPal + giveback) and the volume cashback earned (simulated in the sandbox).',
     sources: [
       {
         id: 'gifts',
-        description: 'One row per completed payment. Net is the amount minus PayPal fees. Fee covered is what supporters added to cover the fee.',
+        description: 'One row per completed payment. Net is the amount minus admin fees (PayPal + giveback). Fee covered is what supporters added to cover the fee.',
         data: data.gifts,
         fields: fields([
           ['id', 'Payment ID', 'textFormat', true],
@@ -90,7 +90,7 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['description', 'What they bought', 'textFormat'],
           ['currency', 'Paid in', 'textFormat'],
           ['amount', 'Amount', 'currencyFormat'],
-          ['fee', 'PayPal fee', 'currencyFormat'],
+          ['fee', 'Admin fee', 'currencyFormat'],
           ['feeCovered', 'Fee covered by supporter', 'currencyFormat'],
           ['net', 'Net', 'currencyFormat'],
         ]),
@@ -130,7 +130,7 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
           ['month', 'Month', 'dateFormat'],
           ['gifts', 'Payments', 'integerFormat'],
           ['volume', 'Volume', 'currencyFormat'],
-          ['fees', 'PayPal fees', 'currencyFormat'],
+          ['fees', 'Admin fees', 'currencyFormat'],
           ['cashback', 'Cashback', 'currencyFormat'],
           ['tier', 'Cashback tier', 'textFormat'],
           ['rate', 'Cashback rate', 'percentageFormat'],
@@ -153,8 +153,8 @@ export function buildStudioData(data: StudioData): AgDataSourcesDefinition {
       },
     ],
     expressions: [
-      ratio('feeShare', 'Fee share', 'PayPal fees as a share of the amount raised.', 'gifts.fee', 'gifts.amount'),
-      ratio('coverRate', 'Fee cover rate', 'Share of PayPal fees that supporters covered.', 'gifts.feeCovered', 'gifts.fee'),
+      ratio('feeShare', 'Fee share', 'Admin fees as a share of the amount raised.', 'gifts.fee', 'gifts.amount'),
+      ratio('coverRate', 'Fee cover rate', 'Share of admin fees that supporters covered.', 'gifts.feeCovered', 'gifts.fee'),
     ],
   };
 }

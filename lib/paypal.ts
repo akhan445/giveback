@@ -16,13 +16,32 @@ export class PayPalApiError extends Error {
   }
 }
 
-let cachedToken: { value: string; expiresAt: number } | undefined;
+// Two PayPal accounts are in play. The MERCHANT account is the vendor (reports, balances, invoices). The PLATFORM
+// account is giveback itself: with CHECKOUT_MODE=platform, checkout runs as the platform so supporters pay giveback,
+// which keeps its fee and settles the vendor through Payouts (see lib/settlements.ts). 'direct' = supporters pay the
+// vendor's account straight (the original flow, kept as an instant fallback).
+export type Creds = { id: string; secret: string };
+export const checkoutMode = (): 'platform' | 'direct' => (process.env.CHECKOUT_MODE === 'platform' ? 'platform' : 'direct');
 
-async function accessToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.value;
-
+export function merchantCreds(): Creds {
   const { PAYPAL_CLIENT_ID: id, PAYPAL_SECRET: secret } = process.env;
   if (!id || !secret) throw new Error('PAYPAL_CLIENT_ID and PAYPAL_SECRET must be set (see .env.local)');
+  return { id, secret };
+}
+
+export function checkoutCreds(): Creds {
+  if (checkoutMode() === 'direct') return merchantCreds();
+  const { PAYOUT_CLIENT_ID: id, PAYOUT_CLIENT_SECRET: secret } = process.env;
+  if (!id || !secret) throw new Error('PAYOUT_CLIENT_ID and PAYOUT_CLIENT_SECRET must be set for CHECKOUT_MODE=platform');
+  return { id, secret };
+}
+
+const tokens = new Map<string, { value: string; expiresAt: number }>();
+
+async function accessToken(creds: Creds = merchantCreds()): Promise<string> {
+  const cached = tokens.get(creds.id);
+  if (cached && Date.now() < cached.expiresAt) return cached.value;
+  const { id, secret } = creds;
 
   const res = await fetch(`${BASE_URL}/v1/oauth2/token`, {
     method: 'POST',
@@ -37,21 +56,21 @@ async function accessToken(): Promise<string> {
 
   const { access_token, expires_in } = (await res.json()) as { access_token: string; expires_in: number };
   // Refresh a minute early so an in-flight request never carries an expired token.
-  cachedToken = { value: access_token, expiresAt: Date.now() + (expires_in - 60) * 1000 };
+  tokens.set(creds.id, { value: access_token, expiresAt: Date.now() + (expires_in - 60) * 1000 });
   return access_token;
 }
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, creds: Creds = merchantCreds()): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(`${BASE_URL}${path}`, {
-      headers: { Authorization: `Bearer ${await accessToken()}` },
+      headers: { Authorization: `Bearer ${await accessToken(creds)}` },
       cache: 'no-store',
     });
     if (res.ok) return (await res.json()) as T;
 
     // A revoked or expired token: drop it and mint a new one once.
     if (res.status === 401 && attempt === 1) {
-      cachedToken = undefined;
+      tokens.delete(creds.id);
       continue;
     }
     if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS) {
@@ -224,12 +243,12 @@ export function getBalances(): Promise<Balances> {
 
 // --- Orders (checkout) and webhook verification -----------------------------------
 
-async function post<T>(path: string, body: unknown, requestId?: string): Promise<T> {
+async function post<T>(path: string, body: unknown, requestId?: string, creds: Creds = merchantCreds()): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${await accessToken()}`,
+        Authorization: `Bearer ${await accessToken(creds)}`,
         'Content-Type': 'application/json',
         // PayPal replays the original result for a repeated request id, so retries never double-charge.
         ...(requestId ? { 'PayPal-Request-Id': requestId } : {}),
@@ -239,7 +258,7 @@ async function post<T>(path: string, body: unknown, requestId?: string): Promise
     });
     if (res.ok) return (await res.json()) as T;
     if (res.status === 401 && attempt === 1) {
-      cachedToken = undefined;
+      tokens.delete(creds.id);
       continue;
     }
     if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS) {
@@ -302,6 +321,7 @@ export function createOrder(
       }),
     },
     requestId,
+    checkoutCreds(),
   );
 }
 
@@ -311,11 +331,11 @@ export const approveLink = (links?: OrderLink[]) =>
 
 /** The order's current state at PayPal: CREATED until the supporter approves, then APPROVED. */
 export function getOrder(orderId: string) {
-  return get<{ id: string; status: string }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+  return get<{ id: string; status: string }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, checkoutCreds());
 }
 
 export function captureOrder(orderId: string) {
-  return post<CaptureResult>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, `capture-${orderId}`);
+  return post<CaptureResult>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, `capture-${orderId}`, checkoutCreds());
 }
 
 /** Asks PayPal whether this webhook delivery is genuine (signature check). */
