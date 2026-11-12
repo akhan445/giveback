@@ -3,7 +3,7 @@
 //   - Never two payouts at once.
 export type PayoutTrigger = 'manual' | 'year_end'; // new payouts are always 'manual'; old rows may say 'year_end' (the automatic sweep was removed)
 
-export const DEFAULT_MIN_CENTS = 1_000; // $10
+export const DEFAULT_MIN_CENTS = 2_500; // $25
 export const DEFAULT_COOLDOWN_DAYS = 30;
 
 export type PayoutCheck =

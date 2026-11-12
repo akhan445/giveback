@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { checkPayout, isFailedStatus, isInFlightStatus, nextStatus } from '../payout-rules';
 
 const now = new Date('2026-11-11T12:00:00Z');
-const base = { trigger: 'manual', balanceCents: 44_470, minCents: 1_000, cooldownDays: 30, lastPayoutAt: null, inFlight: false, hasRecipient: true, now } as const;
+const base = { trigger: 'manual', balanceCents: 44_470, minCents: 2_500, cooldownDays: 30, lastPayoutAt: null, inFlight: false, hasRecipient: true, now } as const;
 
 describe('checkPayout', () => {
   it('allows a manual payout above the minimum with no recent payout', () => {
     expect(checkPayout(base)).toEqual({ ok: true });
   });
-  it('blocks a balance below the $10 minimum and says how much is missing', () => {
-    expect(checkPayout({ ...base, balanceCents: 700 })).toEqual({ ok: false, reason: 'below_minimum', shortCents: 300 });
+  it('blocks a balance below the $25 minimum and says how much is missing', () => {
+    expect(checkPayout({ ...base, balanceCents: 1_200 })).toEqual({ ok: false, reason: 'below_minimum', shortCents: 1_300 });
   });
   it('allows exactly the minimum', () => {
-    expect(checkPayout({ ...base, balanceCents: 1_000 })).toEqual({ ok: true });
+    expect(checkPayout({ ...base, balanceCents: 2_500 })).toEqual({ ok: true });
   });
   it('blocks for 30 days after the last payout, then allows it', () => {
     const last = new Date('2026-10-20T12:00:00Z');
