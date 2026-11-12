@@ -142,3 +142,11 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
   body       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Working drafts: when a director settles an opportunity in Ask giveback, a short AI summary is saved against that card.
+CREATE TABLE IF NOT EXISTS working_drafts (
+  card_id    TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  summary    TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

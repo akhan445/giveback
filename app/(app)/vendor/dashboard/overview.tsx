@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TIERS } from '@/lib/cashback';
 import type { InvoiceProposal } from '@/lib/chat-tools';
-import type { SavedSummary } from '@/lib/ai-store';
+import type { SavedSummary, WorkingDraft } from '@/lib/ai-store';
 import type { SponsorRow } from '@/lib/sponsors';
 import { convertUsdCents } from '@/lib/currency';
 import { eventCard, reserveCard, type Card } from '@/lib/insight-text';
@@ -16,7 +16,7 @@ import styles from './overview.module.css';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export function Overview({ data, sponsors, summary }: { data: OverviewData; sponsors: SponsorRow[]; summary: SavedSummary | null }) {
+export function Overview({ data, sponsors, summary, drafts: initialDrafts }: { data: OverviewData; sponsors: SponsorRow[]; summary: SavedSummary | null; drafts: WorkingDraft[] }) {
   const router = useRouter();
   const fmt = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency }), [data.currency]);
   const fmt0 = useMemo(() => new Intl.NumberFormat('en-CA', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }), [data.currency]);
@@ -40,14 +40,21 @@ export function Overview({ data, sponsors, summary }: { data: OverviewData; spon
   const [barX, setBarX] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   const chat = useChat();
+  const [drafts, setDrafts] = useState(initialDrafts);
+  const [topic, setTopic] = useState<{ id: string; title: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string>();
+  const draftOf = (id: string) => drafts.find((d) => d.cardId === id);
   const allCards: Card[] = [
     ...data.opportunities.map((o) => eventCard(o, money0)),
     ...(data.reserve ? [reserveCard(data.reserve, money0)] : []),
   ];
   const live = allCards.filter((c) => !dismissed.includes(c.id));
+  const withDraft = allCards.filter((c) => draftOf(c.id));
   const tags = [...new Set(live.map((c) => c.tag))];
-  const activeFilter = filter === 'All' || tags.includes(filter) ? filter : 'All';
-  const cards = activeFilter === 'All' ? live : live.filter((c) => c.tag === activeFilter);
+  const DRAFTS_TAB = 'Working drafts';
+  const activeFilter = filter === 'All' || tags.includes(filter) || (filter === DRAFTS_TAB && withDraft.length) ? filter : 'All';
+  const cards = activeFilter === 'All' ? live : activeFilter === DRAFTS_TAB ? withDraft : live.filter((c) => c.tag === activeFilter);
   // The few numbers behind a card, shown under "Why this?".
   const evidence = (c: Card): { label: string; cents: number }[] => {
     const ev = data.opportunities.find((o) => o.id === c.id);
@@ -62,6 +69,26 @@ export function Overview({ data, sponsors, summary }: { data: OverviewData; spon
   };
 
   const askAbout = (text: string) => { setChatOpen(true); void chat.send(text); };
+  // Starting from an opportunity card: remember the topic so the chat can offer "Save as working draft" when it is settled.
+  const startTopic = (c: Card, text: string) => {
+    setTopic({ id: c.id, title: c.title }); setSaveErr(undefined); setChatOpen(true);
+    void chat.send(text, { role: 'assistant', text: 'When we have settled on a plan, press "Save as working draft" below and I will keep a short summary on this card, so you can come back to it.' });
+  };
+  async function saveDraft() {
+    if (!topic) return;
+    setSaving(true); setSaveErr(undefined);
+    try {
+      const res = await fetch('/api/drafts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cardId: topic.id, title: topic.title, messages: chat.msgs.map((m) => ({ role: m.role, text: m.text })).slice(-20) }) });
+      const j = (await res.json()) as { draft?: WorkingDraft; error?: string };
+      if (!res.ok || !j.draft) throw new Error(j.error ?? 'Could not save the draft.');
+      setDrafts((d) => [j.draft!, ...d.filter((x) => x.cardId !== j.draft!.cardId)]);
+      setFilter('Working drafts'); setTopic(null);
+    } catch (e) { setSaveErr((e as Error).message); } finally { setSaving(false); }
+  }
+  async function removeDraft(id: string) {
+    setDrafts((d) => d.filter((x) => x.cardId !== id));
+    await fetch(`/api/drafts?cardId=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => undefined);
+  }
 
   return (
     <div className={`${styles.root} ${chatOpen ? styles.withChat : ''}`}>
@@ -136,13 +163,13 @@ export function Overview({ data, sponsors, summary }: { data: OverviewData; spon
           <div className={styles.stack}>
             <div>
               <div className={styles.aiHead}>
-                <div className={styles.label}>AI opportunities</div>
+                <div className={styles.label}>Ask AI opportunities</div>
                 <div className={styles.sub}>Tailored for <b style={{ color: 'var(--ink)' }}>{ORG_TYPES[data.org.orgType]}</b> · <Link href="/vendor/settings" style={{ color: 'inherit' }}>change</Link></div>
               </div>
               <div className={styles.chipsRow} role="tablist" aria-label="Filter opportunities">
-                {['All', ...tags].map((t) => (
+                {['All', ...tags, ...(withDraft.length ? [DRAFTS_TAB] : [])].map((t) => (
                   <button key={t} role="tab" aria-selected={activeFilter === t} className={`${styles.tag} ${styles.fchip} ${t === 'Smoothing' ? styles.red : t === 'All' ? styles.neutral : ''} ${activeFilter === t ? styles.fon : ''}`} onClick={() => setFilter(t)}>
-                    {t} {t === 'All' ? live.length : live.filter((c) => c.tag === t).length}
+                    {t} {t === 'All' ? live.length : t === DRAFTS_TAB ? withDraft.length : live.filter((c) => c.tag === t).length}
                   </button>
                 ))}
                 {dismissed.length > 0 && <button className={styles.link} onClick={() => setDismissed([])}>Restore {dismissed.length} dismissed</button>}
@@ -152,7 +179,9 @@ export function Overview({ data, sponsors, summary }: { data: OverviewData; spon
                 {cards.map((c) => (
                   <article key={c.id} className={styles.opp}>
                     <span className={`${styles.tag} ${c.tone === 'amber' ? styles.amber : c.tone === 'red' ? styles.red : ''}`}>{c.tag}</span>
-                    <h4>{c.title}</h4><p>{c.body}</p>
+                    {draftOf(c.id) && <>{' '}<span className={`${styles.tag} ${styles.amber}`}>Working draft</span></>}
+                    <h4>{c.title}</h4>
+                    {draftOf(c.id) ? <p style={{ whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>{draftOf(c.id)!.summary}</p> : <p>{c.body}</p>}
                     {open === c.id && (() => {
                       const rows = evidence(c); const mx = Math.max(1, ...rows.map((r) => r.cents));
                       return <div className={styles.why}><div className={styles.label}>The numbers behind this</div>
@@ -160,23 +189,27 @@ export function Overview({ data, sponsors, summary }: { data: OverviewData; spon
                         <div className={styles.sub}>From your own payment history. Dates come from a fixed calendar, not the AI.</div></div>;
                     })()}
                     <div className={styles.actions}>
-                      <button className={`${styles.btn} ${styles.p}`} onClick={() => askAbout(`${c.action}: ${c.title}`)}>{c.action}</button>
+                      {draftOf(c.id)
+                        ? <button className={`${styles.btn} ${styles.p}`} onClick={() => startTopic(c, `Let us continue my working draft: ${c.title}`)}>Continue draft</button>
+                        : <button className={`${styles.btn} ${styles.p}`} onClick={() => startTopic(c, `${c.action}: ${c.title}`)}>{c.action}</button>}
                       <button className={styles.link} onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? 'Hide numbers' : 'Why this?'}</button>
                       <button className={styles.link} onClick={() => askAbout(`Tell me more about: ${c.title}`)}>Ask about this</button>
-                      <button className={styles.link} onClick={() => setDismissed((d) => [...d, c.id])}>Dismiss</button>
+                      {draftOf(c.id)
+                        ? <button className={styles.link} onClick={() => void removeDraft(c.id)}>Delete draft</button>
+                        : <button className={styles.link} onClick={() => setDismissed((d) => [...d, c.id])}>Dismiss</button>}
                     </div>
                   </article>
                 ))}
               </div>
             </div>
-            {!chatOpen && <Chat chat={chat} sponsors={sponsors} money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(true)} />}
+            {!chatOpen && <Chat chat={chat} draft={{ topic, saving, err: saveErr, save: () => void saveDraft() }} sponsors={sponsors} money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(true)} />}
           </div>
         </div>
       </div>
 
       {chatOpen && (
         <aside className={styles.drawer}>
-          <Chat chat={chat} sponsors={sponsors} side money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(false)} />
+          <Chat chat={chat} draft={{ topic, saving, err: saveErr, save: () => void saveDraft() }} sponsors={sponsors} side money={money} onSent={() => router.refresh()} onExpand={() => setChatOpen(false)} />
         </aside>
       )}
     </div>
@@ -308,10 +341,10 @@ function useChat() {
     setMsgs([]);
     await fetch('/api/chat', { method: 'DELETE' }).catch(() => undefined);
   }
-  async function send(raw: string) {
+  async function send(raw: string, preface?: Msg) {
     const q = raw.trim();
     if (!q || busy) return;
-    const next: Msg[] = [...msgs, { role: 'user', text: q }];
+    const next: Msg[] = [...msgs, ...(preface ? [preface] : []), { role: 'user', text: q }];
     setMsgs(next); setBusy(true);
     try {
       const res = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: next }) });
@@ -324,7 +357,7 @@ function useChat() {
   return { msgs, busy, send, clear };
 }
 
-function Chat({ chat, sponsors, side, money, onSent, onExpand }: { chat: ReturnType<typeof useChat>; sponsors: SponsorRow[]; side?: boolean; money: (c: number) => string; onSent: () => void; onExpand: () => void }) {
+function Chat({ chat, sponsors, draft, side, money, onSent, onExpand }: { chat: ReturnType<typeof useChat>; sponsors: SponsorRow[]; draft: { topic: { id: string; title: string } | null; saving: boolean; err?: string; save: () => void }; side?: boolean; money: (c: number) => string; onSent: () => void; onExpand: () => void }) {
   const { msgs, busy, send, clear } = chat;
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -344,6 +377,12 @@ function Chat({ chat, sponsors, side, money, onSent, onExpand }: { chat: ReturnT
         {busy && <div className={styles.a}>Thinking…</div>}
         <div ref={end} />
       </div>
+      {draft.topic && msgs.length >= 3 && !busy && (
+        <div style={{ padding: '6px 0' }}>
+          <button className={`${styles.btn} ${styles.p}`} style={{ width: '100%' }} disabled={draft.saving} onClick={draft.save}>{draft.saving ? 'Saving…' : 'Save as working draft'}</button>
+          <div className={styles.sub} style={{ marginTop: 4 }}>{draft.err ?? `Saves a short summary to “${draft.topic.title}”.`}</div>
+        </div>
+      )}
       <div className={styles.chips}>{SUGGESTIONS.map((s) => <button key={s} className={styles.chip} onClick={() => void send(s)}>{s}</button>)}</div>
       <form className={styles.compose} onSubmit={(e) => { e.preventDefault(); void send(text); setText(''); }}>
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask about cash flow, campaigns, sponsors…" aria-label="Ask giveback" />

@@ -2,7 +2,7 @@
 // comes from a query), can PREPARE a sponsor invoice (the director confirms), and cannot change anything itself.
 import { aiModels, openAiKey } from './ai';
 import { paymentBreakdown } from './analysis';
-import { latestSummary } from './ai-store';
+import { latestSummary, listDrafts } from './ai-store';
 import { runTool, TOOL_DEFINITIONS, type InvoiceProposal } from './chat-tools';
 import { ORG_TYPES } from './org';
 import { getOverview } from './overview';
@@ -14,11 +14,11 @@ const MAX_STEPS = 5;
 
 export class AssistantUnavailable extends Error {}
 
-export async function runAssistant(messages: ChatMessage[], opts: { signal?: AbortSignal; summaryMode?: boolean } = {}): Promise<{ reply: string; proposals: InvoiceProposal[] }> {
+export async function runAssistant(messages: ChatMessage[], opts: { signal?: AbortSignal; summaryMode?: boolean; draftTitle?: string } = {}): Promise<{ reply: string; proposals: InvoiceProposal[] }> {
   const key = openAiKey();
   if (!key) throw new AssistantUnavailable('The assistant is not configured: set AG_STUDIO_OPENAI_API_KEY.');
   const today = new Date();
-  const [ov, sponsors, saved] = await Promise.all([getOverview(today), listSponsors().catch(() => []), latestSummary().catch(() => null)]);
+  const [ov, sponsors, saved, drafts] = await Promise.all([getOverview(today), listSponsors().catch(() => []), latestSummary().catch(() => null), listDrafts().catch(() => [])]);
   const proposals: InvoiceProposal[] = [];
   const instructions = [
     `You are giveback's analyst for ${ov.org.name}, a ${ORG_TYPES[ov.org.orgType]}${ov.org.tradition ? ` (${ov.org.tradition} tradition)` : ''}. Today is ${today.toISOString().slice(0, 10)}. Money is in ${ov.currency}.`,
@@ -30,7 +30,9 @@ export async function runAssistant(messages: ChatMessage[], opts: { signal?: Abo
     'To invoice a sponsor, call propose_sponsor_invoice: it only prepares a card the director must confirm. After it, say the invoice is prepared below and needs their Confirm click; never say it was sent. When money is short (for example rent), check get_sponsor_pledges and when you recommend invoicing a pledge that is not yet invoiced, ALSO call propose_sponsor_invoice for it in the same turn.',
     'The cashback and pricing advantage are simulated in this sandbox; mention that only if asked.',
     ...(opts.summaryMode ? ['Write the dashboard summary now: 4 to 6 short lines, plain text, each starting with a dash. Cover where this month stands (raised, cashback tier, effective fee rate), what is coming up, sponsor money still owed, and one thing to watch. Use the tools first. No greeting, no questions.'] : []),
-    ...(saved && !opts.summaryMode ? [`The saved dashboard summary the director is looking at (from ${saved.createdAt.slice(0, 10)}):\n${saved.body}`] : []),
+    ...(opts.draftTitle ? [`Write the working-draft summary for "${opts.draftTitle}" from the conversation so far: what was decided, the key numbers that came from the tools, and the next steps. 4 to 7 short lines, each starting with a dash, plain text. If nothing was decided yet, say what is still open. No greeting, no questions.`] : []),
+    ...(drafts.length && !opts.summaryMode && !opts.draftTitle ? [`Working drafts the director saved earlier (continue from these when they reopen one):\n${drafts.map((d) => `- ${d.title}\n${d.summary}`).join('\n')}`] : []),
+    ...(saved && !opts.summaryMode && !opts.draftTitle ? [`The saved dashboard summary the director is looking at (from ${saved.createdAt.slice(0, 10)}):\n${saved.body}`] : []),
   ].join('\n');
 
   const model = aiModels()[0];
@@ -52,7 +54,7 @@ export async function runAssistant(messages: ChatMessage[], opts: { signal?: Abo
       try { args = JSON.parse(c.arguments ?? '{}'); } catch { /* bad arguments: the tool reports it */ }
       const out = c.name === 'get_payment_breakdown' ? await paymentBreakdown(Number(args.days)) : runTool(c.name ?? '', args, ov, today, sponsors);
       const prop = (out as { proposal?: InvoiceProposal }).proposal;
-      if (prop && !opts.summaryMode && !proposals.some((p) => p.sponsorId === prop.sponsorId)) proposals.push(prop);
+      if (prop && !opts.summaryMode && !opts.draftTitle && !proposals.some((p) => p.sponsorId === prop.sponsorId)) proposals.push(prop);
       return { type: 'function_call_output', call_id: c.call_id, output: JSON.stringify(out) };
     }));
     res = await call({ previous_response_id: res.id, input: outputs });
