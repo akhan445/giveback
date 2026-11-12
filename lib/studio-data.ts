@@ -4,7 +4,7 @@
 // no widget (or AI agent) can reveal it by accident.
 import { db } from './db';
 import { computeCashback } from './cashback';
-import { CATALOG } from './catalog';
+import { listCatalog } from './catalog-store';
 import { countryName, countryRegion } from './countries';
 import { coordsFor } from './geo';
 import { getGoal, getOrgProfile, toOrgCents } from './history';
@@ -133,7 +133,7 @@ export async function getStudioData(): Promise<StudioData> {
   for (const g of gifts) if (g.monthlyGiver) recurring.set(g.month, (recurring.get(g.month) ?? 0) + g.amount);
 
   // Counter sales list their items ("2x Cookie box, 1x Coffee"); donations have none.
-  const price = new Map<string, number>(CATALOG.map((c) => [c.name, c.priceCents]));
+  const price = new Map<string, number>((await listCatalog()).map((c) => [c.name, c.priceCents]));
   const items: ItemRow[] = [];
   for (const g of gifts) {
     g.description.split(', ').forEach((part, i) => {

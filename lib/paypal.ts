@@ -272,21 +272,27 @@ async function post<T>(path: string, body: unknown, requestId?: string, creds: C
   }
 }
 
-// --- Creating and sending an invoice (the vendor's merchant account invoices a sponsor) ---
+// --- Creating and sending an invoice (the giveback platform account invoices a sponsor on the vendor's behalf) ---
 
 /** Creates a draft invoice and returns its id (PayPal answers with a link ending in the id). */
 export async function createInvoiceDraft(input: {
   invoiceNumber: string; currency: string; amountValue: string; itemName: string; note: string; dueDate: string; recipientEmail: string; recipientName: string; requestId: string;
+  invoicerName?: string; terms?: string; // shown on the invoice: who is really asking for the money
 }): Promise<string> {
   const res = await post<{ href?: string; id?: string }>(
     '/v2/invoicing/invoices',
     {
-      detail: { invoice_number: input.invoiceNumber, currency_code: input.currency, note: input.note, payment_term: { term_type: 'DUE_ON_DATE_SPECIFIED', due_date: input.dueDate } },
+      detail: {
+        invoice_number: input.invoiceNumber, currency_code: input.currency, note: input.note, payment_term: { term_type: 'DUE_ON_DATE_SPECIFIED', due_date: input.dueDate },
+        ...(input.terms && { terms_and_conditions: input.terms }),
+      },
+      ...(input.invoicerName && { invoicer: { business_name: input.invoicerName } }),
       primary_recipients: [{ billing_info: { business_name: input.recipientName, email_address: input.recipientEmail } }],
       items: [{ name: input.itemName, quantity: '1', unit_amount: { currency_code: input.currency, value: input.amountValue } }],
       configuration: { allow_tip: false },
     },
     input.requestId,
+    checkoutCreds(), // the platform account in platform mode, so the payment lands with giveback and is settled like any other
   );
   const id = res.id ?? res.href?.split('/').pop();
   if (!id) throw new Error('PayPal did not return an invoice id');
@@ -295,12 +301,19 @@ export async function createInvoiceDraft(input: {
 
 /** Sends a draft invoice to the recipient by email. Returns the link PayPal gives for it, if any. */
 export async function sendInvoice(id: string, subject: string): Promise<string | null> {
-  const res = await post<{ href?: string }>(`/v2/invoicing/invoices/${encodeURIComponent(id)}/send`, { subject, send_to_invoicer: false, send_to_recipient: true });
+  const res = await post<{ href?: string }>(`/v2/invoicing/invoices/${encodeURIComponent(id)}/send`, { subject, send_to_invoicer: false, send_to_recipient: true }, undefined, checkoutCreds());
   return res.href ?? null;
 }
 
+/** Reads an invoice. Tries the checkout account first, then the merchant (invoices sent before the platform switch). */
 export async function getInvoiceById(id: string): Promise<Invoice> {
-  return get<Invoice>(`/v2/invoicing/invoices/${encodeURIComponent(id)}`);
+  const path = `/v2/invoicing/invoices/${encodeURIComponent(id)}`;
+  try {
+    return await get<Invoice>(path, checkoutCreds());
+  } catch (e) {
+    if (e instanceof PayPalApiError && (e.status === 404 || e.status === 403) && checkoutMode() === 'platform') return get<Invoice>(path, merchantCreds());
+    throw e;
+  }
 }
 
 export type CaptureResult = {

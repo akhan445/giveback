@@ -354,7 +354,7 @@ function SponsorInvoices({ sponsors, money, onAsk }: { sponsors: SponsorRow[]; m
   if (!sponsors.length) return null;
   return (
     <section className={styles.card}>
-      <div className={styles.chartHead}><div className={styles.label}>Sponsor invoices</div><div className={styles.label} style={{ textTransform: 'none' }}>sent through PayPal Invoicing</div></div>
+      <div className={styles.chartHead}><div className={styles.label}>Sponsor invoices</div><div className={styles.label} style={{ textTransform: 'none' }}>sent by giveback on your behalf</div></div>
       {sponsors.map((s) => {
         const chip = s.invoice ? CHIP[s.invoice.status] : null;
         return (
@@ -363,7 +363,7 @@ function SponsorInvoices({ sponsors, money, onAsk }: { sponsors: SponsorRow[]; m
             <div className={styles.spAmt}>{money(s.pledgeCents)}</div>
             <div>{chip ? <span className={`${styles.spChip} ${styles[chip.cls]}`}>{chip.label}{s.invoice?.status === 'SENT' ? ` · ${shortDate(s.invoice.sentAt)}` : s.invoice?.status === 'PAID' ? ` · ${shortDate(s.invoice.paidAt)}` : ''}</span> : <span className={`${styles.spChip} ${styles.spDue}`}>Not invoiced</span>}</div>
             <div className={styles.spAct}>
-              {s.invoice?.link && <a href={s.invoice.link} target="_blank" rel="noopener" className={styles.link}>PayPal ↗</a>}
+              {s.invoice?.link && s.invoice.status !== 'PAID' && <a href={s.invoice.link} target="_blank" rel="noopener" className={styles.link}>PayPal ↗</a>}
               {!s.invoice && <button className={styles.link} onClick={() => onAsk(`Invoice ${s.name} for their pledge`)}>Ask AI to invoice</button>}
             </div>
           </div>
@@ -390,7 +390,7 @@ function ProposalCard({ p, money, onSent }: { p: InvoiceProposal; money: (c: num
     <div className={styles.prop}>
       <div className={styles.label} style={{ color: 'var(--a)' }}>{state === 'sent' ? 'Invoice sent' : 'Proposed action · needs your confirmation'}</div>
       <div className={styles.propTitle}>Invoice {p.name} {money(p.amountCents)}</div>
-      <div className={styles.sub}>Due {p.dueDate} · sent through PayPal Invoicing to {p.email}</div>
+      <div className={styles.sub}>Due {p.dueDate} · sent through PayPal Invoicing to {p.email}. It tells {p.name} the pledge is requested by your organization and processed by giveback on your behalf; you receive the money, less the usual fee.</div>
       {error && <div className={styles.sub} style={{ color: 'var(--red, #9b1c1c)', marginTop: 6 }} role="alert">{error}</div>}
       {state === 'sent' && <div className={styles.sub} style={{ marginTop: 6 }}>Sent. It shows under Sponsor invoices and updates when it is paid.</div>}
       {state === 'cancelled' && <div className={styles.sub} style={{ marginTop: 6 }}>Cancelled. Nothing was sent.</div>}

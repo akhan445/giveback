@@ -119,3 +119,12 @@ CREATE TABLE IF NOT EXISTS sponsor_invoices (
 );
 -- One live invoice per sponsor: a double click or retry can never send two.
 CREATE UNIQUE INDEX IF NOT EXISTS sponsor_invoices_one_live ON sponsor_invoices (sponsor_id) WHERE status IN ('PENDING', 'SENT', 'PAID');
+
+-- The items a volunteer can sell on the Counter (editable there). Prices are USD cents; the server prices every order from here.
+CREATE TABLE IF NOT EXISTS catalog_items (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  price_cents INTEGER NOT NULL CHECK (price_cents > 0),
+  sort        INTEGER NOT NULL DEFAULT 0
+);
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS counter_title TEXT NOT NULL DEFAULT 'Riverside Community Bake Sale';

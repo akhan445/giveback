@@ -5,7 +5,7 @@ import { db } from './db';
 import { parseOrderTag, platformFeeCents } from './fees';
 import { decimalToCents } from './money';
 import { applyPayoutStatus } from './payouts';
-import { applyInvoiceStatus } from './sponsors';
+import { applyInvoiceStatus, recordInvoicePayment } from './sponsors';
 import { runAfterResponse, settleCapture } from './settlements';
 
 export type PaymentInput = {
@@ -79,6 +79,7 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
       await client.query('ROLLBACK');
       return 'duplicate';
     }
+    let paidInvoiceId: string | null = null;
     const r = event.resource;
     const tag = parseOrderTag(r?.custom_id);
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' && r?.id && r.amount) {
@@ -105,11 +106,12 @@ export async function handleWebhookEvent(event: WebhookEvent): Promise<'processe
     }
     if (event.event_type.startsWith('INVOICING.INVOICE.') && r?.invoice?.id) {
       const status = event.event_type.endsWith('.PAID') ? 'PAID' : event.event_type.endsWith('.CANCELLED') ? 'CANCELLED' : (r.invoice.status ?? 'SENT');
-      await applyInvoiceStatus(r.invoice.id, status, client);
+      if (await applyInvoiceStatus(r.invoice.id, status, client)) paidInvoiceId = r.invoice.id;
     }
     await client.query('COMMIT');
     // The vendor is paid after the response, never while PayPal (or the supporter) waits.
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' && r?.id) runAfterResponse(() => settleCapture(r.id!));
+    if (paidInvoiceId) { const id = paidInvoiceId; runAfterResponse(() => recordInvoicePayment(id)); }
     return 'processed';
   } catch (e) {
     await client.query('ROLLBACK');

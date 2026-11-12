@@ -2,8 +2,13 @@
 // database (the sponsor's pledge), never from the client or the model, and nothing is sent without an explicit confirm.
 import type { PoolClient } from 'pg';
 import { db } from './db';
+import { decimalToCents } from './money';
+import { PAYPAL_FIXED_USD_CENTS, PAYPAL_RATE_BP } from './fees';
+import { convertUsdCents, type CurrencyCode } from './currency';
+import { settleCapture } from './settlements';
 import { DEFAULT_CURRENCY } from './currency';
 import { getOrgProfile } from './history';
+import { upsertPayment } from './payments';
 import { createInvoiceDraft, getInvoiceById, sendInvoice } from './paypal';
 import { decimalFromCents, dueDateFor, statusFromPayPal, type SponsorInvoiceStatus } from './sponsor-rules';
 
@@ -41,22 +46,46 @@ async function refreshOpen() {
   await Promise.all(rows.map(async (r) => {
     try {
       const inv = await getInvoiceById(r.paypal_invoice_id);
-      await applyInvoiceStatus(r.paypal_invoice_id, inv.status);
+      if (await applyInvoiceStatus(r.paypal_invoice_id, inv.status)) await recordInvoicePayment(r.paypal_invoice_id);
     } catch (e) {
       console.error('invoice refresh failed', e instanceof Error ? e.message : e);
     }
   }));
 }
 
-/** Applies a PayPal invoice status (from a webhook or a refresh). Safe to repeat. */
-export async function applyInvoiceStatus(paypalInvoiceId: string, paypalStatus: string, q: Pick<PoolClient, 'query'> = db()) {
+/** Applies a PayPal invoice status (from a webhook or a refresh). Safe to repeat. Returns true when it just turned PAID. */
+export async function applyInvoiceStatus(paypalInvoiceId: string, paypalStatus: string, q: Pick<PoolClient, 'query'> = db()): Promise<boolean> {
   const status = statusFromPayPal(paypalStatus);
-  await q.query(
+  const upd = await q.query(
     `UPDATE sponsor_invoices SET status = $2, paid_at = CASE WHEN $2 = 'PAID' THEN COALESCE(paid_at, now()) ELSE paid_at END, updated_at = now()
       WHERE paypal_invoice_id = $1 AND status <> $2 AND status IN ('SENT', 'PENDING')`,
     [paypalInvoiceId, status],
   );
   await q.query('UPDATE sponsor_invoices SET updated_at = now() WHERE paypal_invoice_id = $1', [paypalInvoiceId]);
+  return status === 'PAID' && (upd.rowCount ?? 0) > 0;
+}
+
+/**
+ * A paid sponsor invoice is a payment to the giveback platform account like any checkout: record it (so it counts toward
+ * volume and cashback) and settle the organization's share. Keyed by PayPal's payment id, so a PAYMENT.CAPTURE webhook
+ * for the same money and this function can both run and the payment is stored once.
+ */
+export async function recordInvoicePayment(paypalInvoiceId: string): Promise<void> {
+  const { rows } = await db().query<{ name: string; email: string }>(
+    'SELECT s.name, s.email FROM sponsor_invoices i JOIN sponsors s ON s.id = i.sponsor_id WHERE i.paypal_invoice_id = $1', [paypalInvoiceId]);
+  const sponsor = rows[0];
+  if (!sponsor) return;
+  const inv = await getInvoiceById(paypalInvoiceId);
+  const tx = inv.payments?.transactions?.find((t) => t.payment_id);
+  if (!tx?.payment_id) return;
+  const amountCents = decimalToCents(tx.amount.value);
+  // The invoice does not report PayPal's fee; estimate it at the sandbox rate (a capture webhook, if it arrives, can only raise it).
+  const feeCents = Math.round((amountCents * PAYPAL_RATE_BP) / 10_000) + convertUsdCents(PAYPAL_FIXED_USD_CENTS, tx.amount.currency_code as CurrencyCode);
+  await upsertPayment({
+    captureId: tx.payment_id, amountCents, currency: tx.amount.currency_code, feeCents,
+    status: 'COMPLETED', kind: 'donation', description: `Sponsorship: ${sponsor.name}`, payerEmail: sponsor.email, payerName: sponsor.name, source: 'capture',
+  });
+  await settleCapture(tx.payment_id);
 }
 
 export async function listSponsors(): Promise<SponsorRow[]> {
@@ -100,10 +129,12 @@ export async function sendSponsorInvoice(sponsorId: number): Promise<SponsorRow>
     const org = (await getOrgProfile()).name;
     const number = `GB-${new Date().getUTCFullYear()}-${String(invId).padStart(4, '0')}`;
     const paypalId = await createInvoiceDraft({
-      invoiceNumber: number, currency: s.currency, amountValue: decimalFromCents(s.pledge_cents), itemName: 'Sponsorship pledge',
-      note: `Thank you for sponsoring ${org}.`, dueDate: dueDateFor(s.due_date), recipientEmail: s.email, recipientName: s.name, requestId: `giveback-sponsor-${invId}`,
+      invoiceNumber: number, currency: s.currency, amountValue: decimalFromCents(s.pledge_cents),
+      invoicerName: `${org} (processed by giveback)`, itemName: `Sponsorship pledge to ${org}`,
+      note: `${org} is asking for your sponsorship pledge. giveback is a payment platform that processes this payment on behalf of ${org} and passes it on to them.`,
+      terms: `Pledge made to ${org}. giveback processes the payment for ${org}; questions about the pledge should go to ${org}.`, dueDate: dueDateFor(s.due_date), recipientEmail: s.email, recipientName: s.name, requestId: `giveback-sponsor-${invId}`,
     });
-    const link = (await sendInvoice(paypalId, `Invoice from ${org}: sponsorship pledge`)) ?? `https://www.sandbox.paypal.com/invoice/details/${paypalId}`;
+    const link = (await sendInvoice(paypalId, `${org} is requesting your sponsorship pledge`)) ?? `https://www.sandbox.paypal.com/invoice/details/${paypalId}`;
     await db().query("UPDATE sponsor_invoices SET status = 'SENT', paypal_invoice_id = $2, invoice_number = $3, link = $4, sent_at = now(), updated_at = now() WHERE id = $1", [invId, paypalId, number, link]);
   } catch (e) {
     await db().query("UPDATE sponsor_invoices SET status = 'FAILED', error = $2, updated_at = now() WHERE id = $1", [invId, String(e instanceof Error ? e.message : e).slice(0, 500)]);

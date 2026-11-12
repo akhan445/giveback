@@ -4,12 +4,16 @@ import { z } from 'zod';
 import { CURRENCY_CODES, convertUsdCents, type CurrencyCode } from './currency';
 import { feeCoverCents } from './fees';
 
-export const CATALOG = [
+export type CatalogItem = { id: string; name: string; priceCents: number };
+
+/** The starter items (also what a reset restores). The live list is in the database: see catalog-store.ts. */
+export const DEFAULT_CATALOG: readonly CatalogItem[] = [
   { id: 'cookie', name: 'Cookie box', priceCents: 1200 },
   { id: 'coffee', name: 'Coffee', priceCents: 350 },
   { id: 'tshirt', name: 'Charity T-shirt', priceCents: 2500 },
   { id: 'raffle', name: 'Raffle ticket', priceCents: 500 },
-] as const;
+];
+export const CATALOG = DEFAULT_CATALOG;
 
 export const MIN_DONATION_CENTS = 100; // $1
 export const MAX_DONATION_CENTS = 1_000_000; // $10,000
@@ -35,13 +39,13 @@ export type PricedOrder = {
 };
 
 /** Prices an order from server-side data. Throws on unknown items, empty or oversized orders. */
-export function priceOrder(req: OrderRequest): PricedOrder {
+export function priceOrder(req: OrderRequest, catalog: readonly CatalogItem[] = DEFAULT_CATALOG): PricedOrder {
   const currency = req.currency ?? 'USD';
   const items = req.items ?? [];
   let totalCents = 0;
   const parts: string[] = [];
   for (const line of items) {
-    const item = CATALOG.find((c) => c.id === line.id);
+    const item = catalog.find((c) => c.id === line.id);
     if (!item) throw new RangeError(`unknown item: ${line.id}`);
     totalCents += convertUsdCents(item.priceCents, currency) * line.qty;
     parts.push(`${line.qty}x ${item.name}`);
@@ -62,3 +66,6 @@ export function priceOrder(req: OrderRequest): PricedOrder {
     description: parts.join(', ').slice(0, 120),
   };
 }
+
+/** A catalog item as an editor submits it. */
+export const itemSchema = z.object({ name: z.string().trim().min(1).max(40), priceCents: z.number().int().min(1).max(MAX_ORDER_CENTS) });

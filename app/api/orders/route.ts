@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { listCatalog } from '@/lib/catalog-store';
 import { priceOrder, orderRequestSchema } from '@/lib/catalog';
 import { centsToDecimal } from '@/lib/money';
 import { feeCoverTag } from '@/lib/fees';
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
 
   let priced;
   try {
-    priced = priceOrder(parsed.data);
+    priced = priceOrder(parsed.data, await listCatalog());
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }

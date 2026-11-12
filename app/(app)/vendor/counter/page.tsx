@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { CATALOG, MAX_DONATION_CENTS, MIN_DONATION_CENTS } from '@/lib/catalog';
+import { MAX_DONATION_CENTS, MIN_DONATION_CENTS, type CatalogItem } from '@/lib/catalog';
 import { CURRENCIES, DEFAULT_CURRENCY, convertUsdCents, type CurrencyCode } from '@/lib/currency';
 import { feeCoverCents } from '@/lib/fees';
 import { centsToDecimal } from '@/lib/money';
+import { RiversideMark } from '../../../brand';
 import { CurrencyPicker } from './currency-picker';
 import styles from './pos.module.css';
 
@@ -30,6 +31,54 @@ declare global {
 
 const MAX_QTY = 100;
 const money = (cents: number, cur: CurrencyCode) => `${CURRENCIES[cur].symbol}${centsToDecimal(cents)}`;
+
+/** Add, rename, re-price and delete the items on sale, and rename the counter. Saved to the database; the server prices from it. */
+function ItemEditor({ items, title, onChanged, onError }: { items: CatalogItem[]; title: string; onChanged: () => void; onError: (m: string) => void }) {
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [heading, setHeading] = useState(title);
+  const call = async (url: string, method: string, body?: unknown) => {
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (!r.ok) onError(((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not save');
+    onChanged();
+  };
+  const cents = (v: string) => Math.round(Number(v) * 100);
+  return (
+    <div className={styles.editor}>
+      <div className={styles.edRow}>
+        <span className={styles.label}>Counter title</span>
+        <input value={heading} maxLength={60} onChange={(e) => setHeading(e.target.value)} onBlur={() => heading.trim() && heading !== title && call('/api/catalog', 'PUT', { title: heading })} aria-label="Counter title" />
+      </div>
+      {items.map((c) => (
+        <ItemRowEdit key={c.id} item={c} onSave={(n, p) => call(`/api/catalog/${c.id}`, 'PUT', { name: n, priceCents: p })} onDelete={() => call(`/api/catalog/${c.id}`, 'DELETE')} />
+      ))}
+      <div className={styles.edRow}>
+        <input placeholder="New item name" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="New item name" />
+        <input className={styles.mono} placeholder="Price $" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="New item price" />
+        <button type="button" className={styles.add} disabled={!name.trim() || !(cents(price) > 0)} onClick={async () => { await call('/api/catalog', 'POST', { name: name.trim(), priceCents: cents(price) }); setName(''); setPrice(''); }}>
+          Add item
+        </button>
+      </div>
+      <p className={styles.hint}>Prices are in USD and convert to the currency you pick. Changes save as you go.</p>
+    </div>
+  );
+}
+
+function ItemRowEdit({ item, onSave, onDelete }: { item: CatalogItem; onSave: (n: string, p: number) => void; onDelete: () => void }) {
+  const [n, setN] = useState(item.name);
+  const [p, setP] = useState(centsToDecimal(item.priceCents));
+  const commit = () => {
+    const c = Math.round(Number(p) * 100);
+    if (n.trim() && c > 0 && (n !== item.name || c !== item.priceCents)) onSave(n.trim(), c);
+  };
+  return (
+    <div className={styles.edRow}>
+      <input value={n} maxLength={40} onChange={(e) => setN(e.target.value)} onBlur={commit} aria-label="Item name" />
+      <input className={styles.mono} inputMode="decimal" value={p} onChange={(e) => setP(e.target.value.replace(/[^0-9.]/g, ''))} onBlur={commit} aria-label="Item price" />
+      <button type="button" className={`${styles.add} ${styles.edDel}`} onClick={onDelete}>Delete</button>
+    </div>
+  );
+}
 
 /** A bill row you can swipe left to reveal a Delete button (works with touch and mouse). */
 function SwipeRow({ onDelete, children }: { onDelete: () => void; children: React.ReactNode }) {
@@ -103,6 +152,14 @@ function loadScript(src: string): Promise<void> {
 export default function PosPage() {
   const [orgName, setOrgName] = useState('');
   useEffect(() => { fetch('/api/org').then((r) => r.json()).then((o) => setOrgName(o.name ?? '')).catch(() => {}); }, []);
+  const [error, setError] = useState<string>();
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [title, setTitle] = useState('');
+  const [editing, setEditing] = useState(false);
+  const loadCatalog = useCallback(() => {
+    fetch('/api/catalog', { cache: 'no-store' }).then((r) => r.json()).then((d: { items: CatalogItem[]; title: string }) => { setCatalog(d.items); setTitle(d.title); }).catch(() => setError('Could not load the items'));
+  }, []);
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [donationInput, setDonationInput] = useState('');
   const [donationCents, setDonationCents] = useState(0);
@@ -111,7 +168,6 @@ export default function PosPage() {
   const [anonymous, setAnonymous] = useState(false);
   const [saleNo, setSaleNo] = useState<number>();
   const [stamp, setStamp] = useState<string>(); // receipt date/time, set on the client to avoid a server/client mismatch
-  const [error, setError] = useState<string>();
   const [paid, setPaid] = useState<{ cents: number; currency: CurrencyCode; name: string | null }>();
   // A payment the supporter is making on their own phone: the QR code for it, and which order to watch.
   const [phone, setPhone] = useState<{ orderId: string; qr: string; cents: number; currency: CurrencyCode }>();
@@ -121,7 +177,7 @@ export default function PosPage() {
   const priceOf = (usdCents: number) => convertUsdCents(usdCents, currency);
   const inputCents = Math.round(Number(donationInput || 0) * 100);
   const inputValid = inputCents >= MIN_DONATION_CENTS && inputCents <= MAX_DONATION_CENTS;
-  const lines = CATALOG.filter((c) => qty[c.id]);
+  const lines = catalog.filter((c) => qty[c.id]);
   // Display total only. The server prices the order again from ids and quantities.
   const subtotalCents =
     lines.reduce((sum, c) => sum + priceOf(c.priceCents) * qty[c.id], 0) + donationCents;
@@ -296,11 +352,16 @@ export default function PosPage() {
       <div className={styles.layout}>
         <main className={styles.main}>
           <div className={styles.top}>
+            <h1 className={styles.title}>{title}</h1>
+            <button type="button" className={`${styles.editBtn} ${editing ? styles.editOn : ''}`} onClick={() => setEditing((v) => !v)}>
+              {editing ? 'Done' : 'Edit items'}
+            </button>
             <CurrencyPicker value={currency} onChange={changeCurrency} />
           </div>
+          {editing && <ItemEditor key={title} items={catalog} title={title} onChanged={loadCatalog} onError={setError} />}
 
           <div className={styles.grid}>
-            {CATALOG.map((c) => {
+            {!editing && catalog.map((c) => {
               const n = qty[c.id] ?? 0;
               return (
                 <div
@@ -478,12 +539,14 @@ export default function PosPage() {
       {paid && (
         <div className={styles.overlay} role="dialog" aria-label="Payment confirmed">
           <div className={styles.card}>
+            <RiversideMark size={56} title={orgName} />
+            <span className={styles.label}>{orgName}</span>
             <div className={styles.stamp}>PAID</div>
             <div className={styles.mono} style={{ fontSize: 28, fontWeight: 600 }}>
               {money(paid.cents, paid.currency)} <span className={styles.label}>{paid.currency}</span>
             </div>
             <div style={{ fontWeight: 700, fontSize: 18 }}>{paid.name ? `Thank you, ${paid.name}!` : 'Thank you!'}</div>
-            <div style={{ color: 'var(--mute)' }}>Paid with PayPal</div>
+            <div style={{ color: 'var(--mute)' }}>Your receipt is in your PayPal account.</div>
             <button type="button" className={styles.btn} onClick={newSale}>
               New sale
             </button>
